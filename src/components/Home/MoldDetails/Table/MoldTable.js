@@ -7,9 +7,14 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { Box,Button,Snackbar,IconButton,CircularProgress,TextField,Link,Chip,Tooltip,Typography,Pagination,PaginationItem,Stack} from '@mui/material';
+import { Box,Button,FormControl,IconButton,InputLabel,Select,MenuItem,TextField,Link,Chip,Tooltip,Typography,Pagination,PaginationItem,Stack} from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2'
-import {Save,History, Preview} from '@mui/icons-material';
+import {Save,LocalShipping, Edit,} from '@mui/icons-material';
+
+import { getDeliveriesByMoldId } from '../../../../actions/deliveries';
+import { getMoldsByItemId} from '../../../../actions/molds';
+import { useDispatch,useSelector } from 'react-redux'
+import moment from 'moment';
 
 // MODAL
 import AddMold from '../Modal/AddMold';
@@ -17,11 +22,63 @@ import EditDeleteMold from '../Modal/EditDeleteMold';
 import HistoryMold from '../Modal/HistoryMold';
 
 
-const MoldTable = () =>{
+const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
+
+    const dispatch = useDispatch();
+    const { isLoading, molds } = useSelector(state => state.molds);
+
+    const [rows, setRows] = useState([]);
+
+    const rowsData = [];
+
+    const [itemSelected,setItemSelected] = useState(null);
+    const [moldSelected,setMoldSelected] = useState(null);
+
+    const [age, setAge] = React.useState('mold');
+
+    const handleChange =(e) => {
+        setAge(e.target.value);
+    };
+
+    useEffect(() => {
+        if (!isLoading && molds) {
+            setRows([]);
+            molds?.map(item => {
+                rowsData.push(
+                    createData2(
+                        <Grid container direction="column" justifyContent="flex-start" alignItems="flex-start">
+                            <Grid xs={6} md={6} lg={6} >
+                                <IconButton onClick={()=>{setMoldSelected(item); handleOpenEditDeleteModal(); }} aria-label="delete" size='small' color='primary' sx={{border:1,mt:0.5}}>
+                                    <Edit sx={{fontSize:20}}/>
+                                </IconButton>
+                            </Grid>
+                            <Grid xs={6} md={6} lg={6}>
+                                <IconButton onClick={()=>{dispatch(getDeliveriesByMoldId(item._id)); setMoldSelected(item); handleOpenHistoryModal(); }} aria-label="delete" size='small' color='success' sx={{border:1,mt:0.5}}>
+                                    <LocalShipping sx={{fontSize:20}} />
+                                </IconButton>
+                            </Grid>               
+                        </Grid>
+                        ,item?.moldNumber,moment(item?.validationDate).format('L'),
+                        `${parseInt(item?.life)-parseInt(item?.delivered)}`,
+                        <Chip label={item?.condition?.label} 
+                            color={item?.condition?.color} 
+                        size='medium' variant="contained" />
+                        ,item?.remarks));
+                return null;
+            });
+
+            setRows([...rowsData]);
+        }
+    }, [isLoading, molds]);
+
+    //REFS
+    sharedStateRef.itemSelected = itemSelected;
+    setSharedStateRef.setItemSelected = setItemSelected;
 
     const [openAddModal, setOpenAddModal] = useState(false);
     const handleOpenAddModal = () => {
-        setOpenAddModal(true);
+        if(itemSelected)
+            setOpenAddModal(true);
     };
     const handleCloseAddModal = () => {
         setOpenAddModal(false);
@@ -40,6 +97,8 @@ const MoldTable = () =>{
         setOpenHistoryModal(true);
     };
     const handleCloseHistoryModal = () => {
+        // reload modal table
+        dispatch(getMoldsByItemId(itemSelected?._id));
         setOpenHistoryModal(false);
     };
 
@@ -48,54 +107,51 @@ const MoldTable = () =>{
         { id: 'moldnumber', label: 'Mold #',maxWidth: 10},
         { id: 'validationdate', label: 'Validation Date',maxWidth:200 },
         { id: 'moldlife', label: 'Life', maxWidth: 10 },
-        { id: 'percentreject', label: '% Rej', maxWidth: 10 },
         { id: 'condition', label: 'Condition', maxWidth: 10 },
         { id: 'remarks', label: 'Remarks', maxWidth: 10 },
       ];
       
-      function createData2(select,moldnumber, validationdate, moldlife, percentreject,condition,remarks) {
-        return { select,moldnumber, validationdate, moldlife, percentreject,condition,remarks };
+      function createData2(select,moldnumber, validationdate, moldlife,condition,remarks) {
+        return { select,moldnumber, validationdate, moldlife,condition,remarks };
       }
-
-      const rows2 = [
-        createData2(
-            <Grid container direction="column" justifyContent="flex-start" alignItems="flex-start">
-                <Grid sx={6} md={6} lg={6} >
-                    <IconButton onClick={handleOpenEditDeleteModal} aria-label="delete" size='small' color='primary' sx={{border:1,mt:0.5}}>
-                        <Preview sx={{fontSize:20}}/>
-                    </IconButton>
-                </Grid>
-                <Grid sx={6} md={6} lg={6}>
-                    <IconButton onClick={handleOpenHistoryModal} aria-label="delete" size='small' color='warning' sx={{border:1,mt:0.5}}>
-                        <History sx={{fontSize:20}} />
-                    </IconButton>
-                </Grid>               
-            </Grid>
-            ,'25150','10-23-2024','2600 / 3000','97%',
-            <Chip label="For Revalidation" color="error" size='medium' variant="contained" />
- 
-            ,'this is a test remarks for testing this is a test remarks for testing'),
-        ];
     
     return (
         <Paper elevation={20} sx={{padding:1}}> 
            {/*  Dialogs */}
-           <AddMold openAddModal={openAddModal} handleCloseAddModal={handleCloseAddModal}/>
-           <EditDeleteMold openEditDeleteModal={openEditDeleteModal} handleCloseEditDeleteModal={handleCloseEditDeleteModal}/>
-           <HistoryMold openHistoryModal={openHistoryModal} handleCloseHistoryModal={handleCloseHistoryModal}/>
+           <AddMold openAddModal={openAddModal} itemSelected={itemSelected} handleCloseAddModal={handleCloseAddModal}/>
+           <EditDeleteMold openEditDeleteModal={openEditDeleteModal} moldSelected={moldSelected} itemSelected={itemSelected} handleCloseEditDeleteModal={handleCloseEditDeleteModal}/>
+           <HistoryMold openHistoryModal={openHistoryModal} handleCloseHistoryModal={handleCloseHistoryModal} moldSelected={moldSelected} itemSelected={itemSelected}/>
          <Typography variant="h5"> Mold Details </Typography>
             <Grid container spacing={5} direction="row" justifyContent="center">
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">ItemCode: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>MPF2123X</span> </Typography><br/><br/>
-                    <Typography variant="p">Desc: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>Allan Choigwapo</span></Typography><br/> <br/>
+                    <Typography variant="p">ItemCode: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.itemCode || ''}</span> </Typography><br/><br/>
+                    <Typography variant="p">Desc: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.itemDescription || ''}</span></Typography><br/> <br/>
                     <Button variant="contained" color="primary" size="small"  startIcon={<Save/>} onClick={handleOpenAddModal}  > Add Mold </Button>
                 </Grid>
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">Buyer: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>GradinRoad</span> </Typography><br/><br/>
-                    <Typography variant="p">Supplier: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>453-AllanLisondra </span></Typography>
+                    <Typography variant="p">Buyer: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.buyer?.name || ''}</span> </Typography><br/><br/>
+                    <Typography variant="p">Supplier: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.supplier?.name || ''} </span></Typography>
                 </Grid>
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">Material: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>Polyclay</span></Typography><br/><br/>
+                    <Typography variant="p">Material: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.material?.name || ''}</span></Typography><br/><br/>
+                    <FormControl fullWidth>
+                    <InputLabel id="demo-simple-select-label" >Column</InputLabel>
+                        <Select
+                            labelId="demo-simple-select-label"
+                            id="demo-simple-select"
+                            value={age}
+                            label="Column"
+                            size='small'
+                            onChange={handleChange}
+                        >
+                            <MenuItem value='mold'>Mold #</MenuItem>
+                            <MenuItem value='validationDate'>Validation Date</MenuItem>
+                            <MenuItem value='life'>Life</MenuItem>
+                            <MenuItem value='condition'>Condition</MenuItem>
+                            <MenuItem value='remarks'>Remarks</MenuItem>
+                        </Select>
+                    </FormControl><br/><br/>
+                    <TextField size='small' onChange={()=>{}} value={''} fullWidth label="SEARCH" variant="outlined" />
                 </Grid>
             </Grid>
         <Grid container spacing={2} justifyContent="center">  
@@ -119,12 +175,7 @@ const MoldTable = () =>{
                     </TableHead>
                     <TableBody>
                         {
-                        // !rows2.length <= 0 ?
-                        // <TableCell>
-                        //     <CircularProgress color="inherit"/>
-                        // </TableCell>
-                        // :
-                        rows2
+                        rows
                         .map((row,i) => {
                             return (
                             <TableRow hover role="checkbox" tabIndex={-1} key={i}>

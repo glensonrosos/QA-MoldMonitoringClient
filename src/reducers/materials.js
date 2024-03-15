@@ -1,16 +1,16 @@
-import { GET_DEPARTMENTS,START_LOADING_HOME,END_LOADING_HOME } from "../constant/actionTypes";
+import { GET_MATERIALS,START_LOADING_HOME,END_LOADING_HOME } from "../constant/actionTypes";
 
 const defaultState = {
     isLoading: false,
-    departments:[],
+    materials:[],
 }
 
 export default(state = defaultState,action) =>{
     switch(action.type){
-        case GET_DEPARTMENTS:
+        case GET_MATERIALS:
             return {
                 ...state,
-                departments: action.payload
+                materials: action.payload
             };
         case START_LOADING_HOME:
             return{

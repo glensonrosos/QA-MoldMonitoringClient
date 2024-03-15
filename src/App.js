@@ -2,7 +2,6 @@ import React,{} from 'react';
 import {BrowserRouter,Routes,Route,Navigate} from 'react-router-dom';
 import Login from './components/Login/Login';
 import MoldDetails from './components/Home/MoldDetails/MoldDetails';
-import MoldMonitoring from './components/Home/MoldMonitoring/MoldMonitoring';
 
 // datetime
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -25,7 +24,6 @@ const App = () =>{
                 <Route path="*" element={<Navigate to="/purchase-orders"/>} /> */}
                 <Route index path="/" element={<Navigate to="/mold-details"/>} />
                 <Route path="/mold-details" element={<MoldDetails/>} />
-                <Route path="/mold-monitoring" element={<MoldMonitoring/>} />
                 <Route path="/login" element={<Login/>} />
             </Routes>
             </LocalizationProvider>

@@ -113,12 +113,12 @@ export default function MenuAppBar() {
           <Link variant="h6" href="/"  sx={{ flexGrow: 1,color:"#fff",textDecoration:"none", fontSize:32 }}>
             Mold Monitoring
           </Link>
-          <Button variant="contained" color="success" href="/mold-monitoring" sx={{mr:5}}>
+          {/* <Button variant="contained" color="success" href="/mold-monitoring" sx={{mr:5}}>
             Mold Monitoring
           </Button>
           <Button variant="contained" color="error" href="/mold-details" sx={{mr:5}}>
             Mold Details
-          </Button>
+          </Button> */}
           {
             <div>
               <Grid container rowSpacing={1} direction="row" justifyContent="center" alignItems="center" columnSpacing={{ xs: 1, sm: 2, md: 3 }}>

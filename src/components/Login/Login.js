@@ -7,7 +7,6 @@ import PebaImage from '../images/PebaImage.jpeg';
 import {useDispatch,useSelector} from 'react-redux';
 import { useNavigate } from 'react-router';
 import { signIn } from '../../actions/auth';
-import { getReqAttDepts,getReqAttDeptsNoLoading} from '../../actions/purchaseOrders';
 
 
 
@@ -76,20 +75,7 @@ export default function SignInSide() {
       setSnackbar({ children: 'Invalid Credentials, Please try again', severity: 'error' });
   }, [isLoading]);
 
-  // -- ORIGINAL
-  useEffect(()=>{
-    dispatch(getReqAttDepts());
-    console.log('called getReqAttDepts login')
-  },[dispatch]);
 
-  // CALL EVERY 60 SECONDS
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      dispatch(getReqAttDeptsNoLoading());
-      console.log('called getReqAttDepts');
-    }, 900000); // 15 minutes timeout
-    return () => clearInterval(intervalId);
-  }, [dispatch]);
 
   useEffect(()=>{
     if(!isPOLoading && reqAttDepts){

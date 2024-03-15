@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useRef} from 'react';
 import Appbar from '../Appbar/Appbar';
 import AddItem from './AddItem/AddItem';
 import ItemTable from './Table/ItemTable';
@@ -10,17 +10,20 @@ import {Grow} from '@mui/material';
 
 const MoldDetails = () =>{
 
+  const sharedStateRef = useRef(null);
+  const setSharedStateRef = useRef(null);
+
   return(
     <>
       <Appbar/>
       <Grid container spacing={2} direction="row" justifyContent="center" sx={{mb:2}}> 
           <Grid xs={6} md={6} lg={6} mt={2}>
-            <AddItem/>
+            <AddItem sharedStateRef={sharedStateRef} setSharedStateRef={setSharedStateRef}/>
              <Box mt={2}></Box>
-            <ItemTable/>
+            <ItemTable setSharedStateRef={setSharedStateRef} />
           </Grid>
           <Grid xs={6} md={6} lg={6} mt={2}>
-            <MoldTable/>
+            <MoldTable sharedStateRef={sharedStateRef} setSharedStateRef={setSharedStateRef}/>
           </Grid>
       </Grid>
     </>

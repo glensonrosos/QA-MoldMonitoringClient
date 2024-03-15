@@ -1,16 +1,16 @@
-import { GET_STATUS,START_LOADING_HOME,END_LOADING_HOME } from "../constant/actionTypes";
+import { GET_SUPPLIERS,START_LOADING_HOME,END_LOADING_HOME } from "../constant/actionTypes";
 
 const defaultState = {
     isLoading: false,
-    status:[],
+    suppliers:[],
 }
 
 export default(state = defaultState,action) =>{
     switch(action.type){
-        case GET_STATUS:
+        case GET_SUPPLIERS:
             return {
                 ...state,
-                status: action.payload
+                suppliers: action.payload
             };
         case START_LOADING_HOME:
             return{
