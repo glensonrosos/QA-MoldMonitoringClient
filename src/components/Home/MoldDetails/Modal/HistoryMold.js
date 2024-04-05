@@ -45,34 +45,135 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
   const [modalData,setModalData] = useState({
     totalRows:0,
     remainingLife:0,
+    totalRej: 0,
+    totalQty:0,
+    totalAcc:0,
   });
 
-  useEffect(()=>{
-    if (!isLoading) {
+  const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+  //`${user?.result?.firstname} ${user?.result?.lastname}`
 
-      setRows([]);
 
-      let remainLife = 0;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedColumn, setSelectedColumn] = React.useState('delivery');
 
-      deliveries?.map((del,index) => {
-            rowsData.push(
-              createData(del._id,
-                <Typography sx={{ color: "#d63031", cursor: "pointer", textDecoration:'underline' }} variant='body1'>{index+1}</Typography>,
-                moment(del.delivery).format('L'),del.accept,del.reject,del.qty,del.poNumber,del.lastEditdBy,del.remarks),
-                );
-              
-            remainLife+= parseInt(del.qty);
-            return null;
-        });
+  const handleSearchInputChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
 
-        setModalData({
-          totalRows: deliveries?.length,
-          remainingLife: parseInt(moldSelected?.life) - parseInt(remainLife) 
-        })
+  const handleChange =(e) => {
+    setSelectedColumn(e.target.value);
+    setSearchQuery('')
+  };
 
-        setRows([...rowsData]);
+  useEffect(() => {
+    if (!isLoading && deliveries) {
+
+      let totalQty = 0;
+      let totalRej = 0;
+      let totalAcc = 0;
+
+      const filteredRows = deliveries.map((del, index) => {
+        totalQty += del.qty;
+        totalRej += del.reject;
+        totalAcc += del.accept;
+
+        return createData(
+          del._id,
+          <Typography sx={{ color: "#d63031", cursor: "pointer", textDecoration:'underline' }} variant='body1'
+            onClick={()=>{
+
+            setInput({
+                _id:del._id,
+                poNumber:del.poNumber,
+                delivery:del.delivery,
+                accept:del.accept,
+                reject:del.reject,
+                qty:del.qty,
+                remarks:del.remarks 
+            });
+
+            setEditInput({
+              _id:del._id,
+              poNumber:del.poNumber,
+              delivery:del.delivery,
+              accept:del.accept,
+              reject:del.reject,
+              qty:del.qty,
+              remarks:del.remarks
+            })
+
+            setIsEdit(true);
+
+            }}
+          >{index+1}</Typography>,
+          moment(del.delivery).format('L'),
+          del.accept,
+          del.reject,
+          del.qty,
+          del.poNumber,
+          del.lastEditdBy,
+          del.remarks
+        );
+        
+      }).filter(row => {
+        const searchText = searchQuery.toLowerCase();
+        if (searchText === '') return true; // Return true for all rows if search query is empty
+        switch (selectedColumn) {
+          case 'delivery':
+            return handleDateSearch(row['delivery'], searchText);
+          case 'accept':
+          case 'reject':
+          case 'qty':
+            return handleNumericSearch(row[selectedColumn], searchText);
+          case 'purchpo':
+          case 'createdby':
+          case 'remarks':
+            return row[selectedColumn]?.toLowerCase()?.includes(searchText);
+          default:
+            return true;
+        }
+      });
+
+      setModalData({
+        totalRows: deliveries?.length,
+        remainingLife: (parseInt(moldSelected?.life) + parseInt(moldSelected?.additionalLife)) - parseInt(totalQty),
+        totalQty,
+        totalAcc,
+        totalRej,
+      })
+
+      setRows(filteredRows);
+
+
     }
-  },[deliveries,isLoading])
+  }, [isLoading, deliveries, searchQuery, selectedColumn, moldSelected]);
+  
+  // Function to handle numeric search for 'Acc', 'Rej', and 'Qty' columns
+  const handleNumericSearch = (value, searchText) => {
+    if (searchText.startsWith('>')) {
+      const num = parseFloat(searchText.substring(1));
+      return parseFloat(value) > num;
+    } else if (searchText.startsWith('<')) {
+      const num = parseFloat(searchText.substring(1));
+      return parseFloat(value) < num;
+    } else {
+      return parseInt(value) === parseInt(searchText);
+    }
+  };
+  
+  // Function to handle date search for 'IQC Delivery' column
+  const handleDateSearch = (value, searchText) => {
+    if (searchText.includes('-')) {
+      const [start, end] = searchText.split('-').map(date => moment(date.trim(), 'MM/DD/YYYY'));
+      const date = moment(value, 'MM/DD/YYYY');
+      return date.isBetween(start, end, null, '[]');
+    } else {
+      const date = moment(value, 'MM/DD/YYYY');
+      return date.isSame(moment(searchText, 'MM/DD/YYYY'));
+    }
+  };
+
 
   useEffect(()=>{
     if(!isLoading && message == 'exceed'){
@@ -82,13 +183,18 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
   },[isLoading,message]);
 
   useEffect(() =>{
-    if(modalData.remainingLife <= moldSelected?.threshold && moldSelected?.condition?.name == "good"){
-       dispatch(editMoldWithId(moldSelected?._id,{...moldSelected,
-          condition:{ label: 'For Validation', name:'for_validation',color: 'primary'},
-          remarks:"reaches Threshold need validation",
-          lastEditdBy:"Dave Mario Lagura"}));
+    //if remaining life reaches 10% of total life , update conditions accordingly
+    const nearValidation = (parseInt(moldSelected?.life) + parseInt(moldSelected?.additionalLife)) * 0.10 ;
+
+    if(parseInt(nearValidation) >= parseInt(modalData.remainingLife) && moldSelected?.condition?.name == "good"){
+
+      dispatch(editMoldWithId(moldSelected?._id,{...moldSelected,
+        condition:{ label: 'Near Validation', name: 'near_validation',color: 'warning'},
+        remarks:"reaches 10% of total life",
+        lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
     }
   },[modalData.remainingLife]);
+
 
   const [input,setInput] = useState({
       _id:null,
@@ -100,6 +206,17 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
       remarks:null 
   });
 
+  const [editInput,setEditInput] = useState({
+    _id:null,
+    poNumber:null,
+    delivery:null,
+    accept:null,
+    reject:null,
+    qty:null,
+    remarks:null 
+});
+
+  const [isEdit,setIsEdit] = useState(false);
   
 
   const clearInputs = () =>{
@@ -110,7 +227,9 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
       reject:null,
       qty:null,
       remarks:null
-    })
+    });
+
+    setIsEdit(false);
   }
 
   const handleOnChangeInput = (name,e,val=null) =>{
@@ -137,11 +256,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
         });
     }
 
-  const [sel, setSel] = React.useState('delivery');
-
-  const handleChangeSelection = (e) => {
-      setSel(e.target.value);
-  };
+ 
 
   const [snackbar, setSnackbar] = useState(null);
   const handleCloseSnackbar = () => setSnackbar(null);
@@ -240,16 +355,83 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
             align={column.numeric || false ? 'right' : 'left'}
             sx={{borderLeft: '1px solid grey'}}
           >
-            {row[column.dataKey]}
+            {/* {row[column.dataKey]} */}
+            {column.dataKey === 'reject' ? <span style={{color:'red'}}>{row[column.dataKey]}</span> : row[column.dataKey]}
           </TableCell>
         ))}
       </React.Fragment>
     );
   }
 
-  const AddDelivery = () =>{
+  const EditDelivery = async () =>{
 
         let flag = true;
+        if(moldSelected?.condition?.name === 'bad') {
+          setSnackbar({ children: `cannot edit delivery, mold condition is BAD `, severity: 'error' });
+          flag = false;
+        }
+
+        const poNumberStr = /^[a-zA-Z0-9-]{3,40}$/;
+        if(!poNumberStr.test(input.poNumber) || input.poNumber == null) {
+            setSnackbar({ children: `PO Number inputed is invalid, `, severity: 'error' });
+            flag = false;
+        }
+
+        const compValidationDate = moment(input.delivery).isBetween(moment('2000','YYYY'), moment().add(3,'y'));
+        if(!compValidationDate){
+            setSnackbar({ children: `Delivery Date Inputed is Invalid`, severity: 'error' });
+            flag = false;
+        }
+
+        const newAccept = parseInt(input.accept) < 0 || parseInt(input.accept) > 999999 || input.accept == null
+        if(newAccept){
+            setSnackbar({ children: `Accept inputed is invalid, `, severity: 'error' });
+            flag = false;
+        }
+        const newReject = parseInt(input.reject) < 0 || parseInt(input.reject) > 999999 || input.reject == null
+        if(newReject){
+          setSnackbar({ children: `Reject inputed is invalid, `, severity: 'error' });
+          flag = false;
+        }
+
+        if(parseInt(input.qty) < 0 || parseInt(input.qty) > 999999 || input.qty == null){
+          setSnackbar({ children: `Qty inputed is invalid, `, severity: 'error' });
+          flag = false;
+        }
+
+        // MUST HAVE A TRAPPING CANNOT ADD DUE TO EXCEED MOLD USED.
+        const newRemainingLife = parseInt(modalData.remainingLife) + parseInt(editInput.qty);
+        const newRemaining = parseInt(newRemainingLife) - parseInt(input.qty);
+
+        if(newRemaining < 0){
+          setSnackbar({ children: `Exceeds ramaining Life, Please Validate Mold Delivery `, severity: 'error' });
+          flag = false;
+        }   
+
+        if(flag && isEdit){
+
+            alert(`newRemainingLife : ${newRemainingLife} , modalData.remainingLife: ${modalData.remainingLife},
+            editInput.qty:${editInput.qty} , newRemaining:${newRemaining}
+            `)
+
+            // await dispatch(addDelivery(moldSelected._id,{...input,poNumber:input.poNumber.toUpperCase(),itemId:itemSelected._id,
+            //   moldId:moldSelected._id,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
+
+            alert('edit delivery');
+
+            clearInputs();
+        }
+
+  }
+
+  const AddDelivery = async () =>{
+
+        let flag = true;
+        if(moldSelected?.condition?.name === 'bad') {
+          setSnackbar({ children: `cannot add delivery, mold condition is BAD `, severity: 'error' });
+          flag = false;
+        }
+
         const poNumberStr = /^[a-zA-Z0-9-]{3,40}$/;
         if(!poNumberStr.test(input.poNumber) || input.poNumber == null) {
             setSnackbar({ children: `PO Number inputed is invalid, `, severity: 'error' });
@@ -281,15 +463,14 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
 
         const newRemaining = parseInt(modalData.remainingLife) - parseInt(input.qty);
 
-        if(newRemaining <= 0){
-          setSnackbar({ children: `Exceeds ramaining Life, Please Validate Mold Delivery `, severity: 'error' });
+        if(newRemaining < 0){
+          setSnackbar({ children: `Cannot Proceed Delivery, Exceeds ramaining Life`, severity: 'error' });
           flag = false;
         }   
 
-        if(flag){
-          
-            dispatch(addDelivery(moldSelected._id,{...input,poNumber:input.poNumber.toUpperCase(),itemId:itemSelected._id,
-              moldId:moldSelected._id,lastEditdBy:"Dave Mario Lagura"}));
+        if(flag && !isEdit){
+            await dispatch(addDelivery(moldSelected._id,{...input,poNumber:input.poNumber.toUpperCase(),itemId:itemSelected._id,
+              moldId:moldSelected._id,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
 
             clearInputs();
         }
@@ -301,7 +482,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
       {/* Dialog bulk edit */}
         <Dialog
             open={openHistoryModal}
-            onClose={handleCloseHistoryModal}
+            onClose={()=>{clearInputs();handleCloseHistoryModal(); }}
             fullWidth
             TransitionComponent={Transition}
             PaperProps={{
@@ -318,13 +499,14 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
           <AppBar sx={{ position: 'relative' }}>
           <Toolbar>
             <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Item: <span style={{backgroundColor:'#2f3640'}}>{itemSelected?.itemCode}</span> - 
-            Mold: <span style={{backgroundColor:'#2f3640'}}>{moldSelected?.moldNumber}</span>
+            Supplier: <span style={{backgroundColor:'#feca57',color:'#000',padding:5}}>{itemSelected?.supplier?.name}</span> |
+            ItemCode: <span style={{backgroundColor:'#feca57',color:'#000',padding:5}}>{itemSelected?.itemCode}</span> | 
+            Mold #: <span style={{backgroundColor:'#feca57',color:'#000',padding:5}}>{moldSelected?.moldNumber}</span> 
             </Typography>
             <IconButton
                 edge="start"
                 color="inherit"
-                onClick={handleCloseHistoryModal}
+                onClick={()=>{clearInputs();handleCloseHistoryModal(); }}
                 aria-label="close"
               >
               <Close />
@@ -340,36 +522,59 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
             <Grid  md={8} lg={8}>
             <Box sx={{mt:2}}>
                 <Box display="flex" flexDirection="row" justifyContent="space-between" pl={1} pr={1} pb={1}>
-                    <Typography  variant='h6' color="green">
-                        Total Rows : <span style={{color:"#2f3640"}}>{modalData.totalRows}</span>
-                    </Typography>
-                  
-                    <Typography variant='h6' color="red">
-                        Life Remaining :{modalData.remainingLife}
-                    </Typography>
-                    <Typography variant='h6'>
-                        Total Life: {moldSelected?.life}
-                    </Typography>
-                    <Box>
+                    <Grid flexGrow={1} alignItems="center" justifyContent="center">
+                      <Grid item flexDirection="row" justifyContent="space-between" alignItems="center">
+                        <Box display="flex" flexDirection="row" justifyContent="space-between">
+                          <Typography  variant='h6' color="green">
+                              Rows : {modalData.totalRows}
+                          </Typography>
+                          <Typography variant='h6' color="red">
+                              Life Remaining :{modalData.remainingLife}
+                          </Typography>
+                          <Typography variant='h6' color="blue">
+                              Life: {moldSelected?.life}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid item flexDirection="row" justifyContent="space-between" alignItems="center">
+                        <Box display="flex" flexDirection="row" justifyContent="space-between" >
+                        <Typography variant='p'>
+                              Addiotional Life: <span style={{color:'red'}}>{moldSelected?.additionalLife}</span>
+                          </Typography>
+                          <Typography  variant='p'>
+                               Accepted : <span style={{color:'red'}}>{modalData.totalAcc}</span>
+                          </Typography>
+                          <Typography variant='p'>
+                               Rejected : <span style={{color:'red'}}>{modalData.totalRej}</span>
+                          </Typography>
+                          <Typography variant='p'>
+                               Qty : <span style={{color:'red'}}>{modalData.totalQty}</span>
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+
+                    <Box alignSelf="center">
                     <FormControl >
-                    <InputLabel id="demo-simple-select-label" >Column</InputLabel>
+                    <InputLabel id="demo-simple-select-label" >Search Column</InputLabel>
                         <Select
-                            value={sel}
-                            label="Column"
+                            value={selectedColumn}
+                            label="Search Column"
                             size='small'
                             sx={{minWidth:150}}
-                            onChange={handleChangeSelection}
+                            onChange={handleChange}
                         >
                             <MenuItem value='delivery'>IQC Delivery</MenuItem>
                             <MenuItem value='accept'>Accept</MenuItem>
                             <MenuItem value='reject'>Reject</MenuItem>
                             <MenuItem value='qty'>Qty</MenuItem>
-                            <MenuItem value='purcpo'>Purch PO#</MenuItem>
-                            <MenuItem value='remarks'>Remarks</MenuItem>
+                            <MenuItem value='purchpo'>Purch PO#</MenuItem>
                             <MenuItem value='createdby'>Created By</MenuItem>
+                            <MenuItem value='remarks'>Remarks</MenuItem>
+                            
                         </Select>
                     </FormControl>
-                    <TextField sx={{ml:1}} size='small' onChange={()=>{}} value={''}  label="SEARCH" variant="outlined"  />
+                    <TextField sx={{ml:1}} size='small' onChange={handleSearchInputChange} value={searchQuery}  label="SEARCH" variant="outlined"  />
                     </Box>
                 </Box>
                 <div style={{ height: 500, width: '100%' }}>
@@ -381,9 +586,16 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                     itemContent={rowContent}
                   />
                 </Paper><br/>
-                  <Typography variant='p'>
-                      {`Note: Life remaining reaches ${moldSelected?.threshold}, MoldCondition auto set to "FOR VALIDATION"`}
-                  </Typography><br/>
+                  <br/> <br/> <br/>
+                  <Button onClick={()=>{
+                      const answer = window.confirm("Are sure you want to RESET / DELETE all Deliveries with this mold");
+                      if (answer) {
+                          //some code
+                      }
+                      else {
+                          //some code
+                      }
+                  }} variant="contained" color="error">Delete All Deliveries</Button>
                 </div>
             </Box>
             </Grid>
@@ -392,7 +604,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                     sx={{
                         '& .MuiTextField-root': { m: 1, width: '50ch' },
                     }}>
-                <TextField label="Purchasing PO Number" onChange={(e)=>handleOnChangeInput("poNumber",e)} value={input.poNumber || ''} variant="outlined" size='small' fullWidth/>
+                <TextField  label="Purchasing PO Number" onChange={(e)=>handleOnChangeInput("poNumber",e)} value={input.poNumber || ''} variant="outlined" size='small' fullWidth/>
                 <DatePicker label="IQC Delivery" maxDate={moment().add(3,'y')} size='small' minDate={moment('2000','YYYY')}  onChange={(e)=>handleOnChangeInput("delivery",e)} value={moment(input.delivery)} />
                 <TextField  label="Accept" type='number' onChange={(e)=>handleOnChangeInput("accept",e)} value={input.accept || ''} size='small' variant="outlined" fullWidth/>
                 <TextField  label="Reject" type='number' onChange={(e)=>handleOnChangeInput("reject",e)} value={input.reject || ''} size='small' variant="outlined" fullWidth/>
@@ -412,7 +624,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                     <Button onClick={clearInputs} variant="contained" color="warning">Clear Inputs</Button>
                   </Grid>
                   <Grid xs={6} md={6} lg={6}> 
-                    <Button onClick={AddDelivery} variant="contained">Add Delivery</Button>
+                    <Button onClick={isEdit ? EditDelivery : AddDelivery} color={isEdit ? 'success' : 'primary'} variant="contained">{isEdit ? `Edit Delivery` : `Add Delivery`}</Button>
                   </Grid>
                 </Grid>
             </Grid>
@@ -435,6 +647,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                 </Snackbar>
             )}
         </div>
+
      </>
   )
 };

@@ -3,7 +3,8 @@ import axios from 'axios';
 const API = axios.create({baseURL: 'http://10.0.1.221:5000/mm'});
 
 //ITEM
-export const getItems = () => API.get(`/items`);
+export const getItems = (page) => API.get(`/items?page=${page}`);
+export const getItemsBySearch = (search) => API.get(`/items/search?itemcode=${search.itemcode}&itemdesc=${search.itemdesc}&buyer=${search.buyer}&supplier=${search.supplier}&material=${search.material}&page=${search.page}`);
 export const createItem = (newItem) => API.post(`/items`,newItem);
 export const editItem = (id,editedItem) => API.patch(`/items/${id}/editItem`,editedItem);
 
@@ -11,7 +12,9 @@ export const editItem = (id,editedItem) => API.patch(`/items/${id}/editItem`,edi
 export const getMolds = () => API.get(`/molds`);
 export const getMoldsByItemId = (id) => API.get(`/molds/${id}/getMoldsByItemId`);
 export const createMold = (id,newMold) => API.post(`/molds/${id}/createMold`,newMold);
+export const exportReport = (report) => API.post(`/molds/exportReport`,report);
 export const editMoldWithId = (id,editMold) => API.patch(`/molds/${id}/editMoldWithId`,editMold);
+
 
 // DELIVERIES
 export const getDeliveriesByMoldId = (id) => API.get(`/deliveries/${id}/getDeliveriesByMoldId`);

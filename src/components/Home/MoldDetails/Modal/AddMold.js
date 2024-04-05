@@ -11,7 +11,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import { DatePicker } from '@mui/x-date-pickers';
 import moment from 'moment';
 
-import {createMold,} from '../../../../actions/molds';
+import {createMold,getMoldsByItemId} from '../../../../actions/molds';
 
 import { useDispatch,useSelector } from 'react-redux';
 
@@ -20,13 +20,16 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
 
     const { isLoading, message} = useSelector(state => state.molds);
 
+    const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+    //`${user?.result?.firstname} ${user?.result?.lastname}`
+
     const [input,setInput] = useState({
         _id:null,
         moldNumber:null,
         validationDate:null,
         life:null,
-        threshold:null,
-        condition:null,
+        additionalLife:0,
+        condition:{ label: 'Good', name: 'good',color: 'success'},
         remarks:null 
     });
 
@@ -44,16 +47,16 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
             moldNumber:null,
             validationDate:null,
             life:null,
-            threshold:null,
+            additionalLife:0,
             condition:null,
             remarks:null 
         });
     }
 
     const conditions = [
-        { label: 'Bad', name: 'bad',color: 'error'},
         { label: 'Good', name: 'good',color: 'success'},
-        { label: 'With Issues', name: 'with_issues',color: 'warning'},
+        { label: 'Bad', name: 'bad',color: 'error'},
+        { label: 'Near Validation', name: 'near_validation',color: 'warning'},
         { label: 'For Validation', name:'for_validation',color: 'primary'},
       ];
 
@@ -81,7 +84,7 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
     }
 
 
-    const AddMoldButton = () =>{
+    const AddMoldButton = async () =>{
 
         let flag = true;
 
@@ -102,11 +105,6 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
             flag = false;
         }
 
-        if(parseInt(input.threshold) >= parseInt(input.life) || parseInt(input.threshold) > 999999 || input.threshold == null){
-            setSnackbar({ children: `Threshold must be lesser than Life, `, severity: 'error' });
-            flag = false;
-        }
-
         const findCondition = conditions.find(con => con?.name === input.condition?.name);
         if(findCondition === undefined || findCondition === null){
            
@@ -115,12 +113,12 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
         }
         if(flag){
            
-            dispatch(createMold(itemSelected._id,{...input,itemId:{
+            await dispatch(createMold(itemSelected._id,{...input,itemId:{
                 _id: itemSelected?._id,
                 name: itemSelected?.itemCode
-            },moldNumber:input.moldNumber.toUpperCase(),lastEditdBy:"Dave Mario Lagura"}));
-            
-            
+            },moldNumber:input.moldNumber.toUpperCase(),lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
+           
+            await dispatch(getMoldsByItemId(itemSelected?._id));
             
             inputClear();
             handleCloseAddModal();
@@ -133,7 +131,10 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
      <>
         {/* dialog box */}
       <Dialog open={openAddModal} onClose={handleCloseAddModal}>
-        <DialogTitle>Add Mold for : <span style={{backgroundColor:'#feca57'}}>{itemSelected?.itemCode}</span></DialogTitle>
+        <DialogTitle>Add Mold: <span style={{backgroundColor:'#feca57',padding:3}}>{itemSelected?.itemCode}</span>
+        <span style={{color:'red',padding:3}}>----</span>
+        <span style={{backgroundColor:'#feca57',padding:3}}>{itemSelected?.supplier?.name}</span>
+        </DialogTitle>
         <DialogContent>
             {/* <Grid container spacing={2} justifyContent="center" alignItems="center">
             <Grid sm={12} md={12} lg={12} > */}
@@ -144,7 +145,6 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
                 <TextField label="Mold #" onChange={(e)=>handleOnChangeInput("moldNumber",e)} value={input.moldNumber || ''} variant="outlined" size='small' fullWidth/>
                 <DatePicker label="Validation Date" maxDate={moment().add(3,'y')} size='small' minDate={moment('2000','YYYY')}  onChange={(e)=>handleOnChangeInput("validationDate",e)} value={moment(input.validationDate)} />
                 <TextField  label="Mold Life" type='number' onChange={(e)=>handleOnChangeInput("life",e)} value={input.life || ''} size='small' variant="outlined" fullWidth/>
-                <TextField  label="Warning Threshold" type='number' onChange={(e)=>handleOnChangeInput("threshold",e)} value={input.threshold || ''} size='small' variant="outlined" fullWidth/>
                 <Autocomplete
                     disablePortal
                     size='small'

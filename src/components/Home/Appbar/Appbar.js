@@ -1,15 +1,14 @@
 import React,{useState,useEffect} from 'react';
 import {AppBar,Box,Toolbar,Typography,IconButton,Alert,Snackbar
   ,MenuItem,Menu,Link,Button,TextField,Dialog,DialogActions,DialogContent,DialogTitle,
-  
 } from '@mui/material/';
 import AccountCircle from '@mui/icons-material/AccountCircle'
 
 import Grid from '@mui/material/Unstable_Grid2';
 import {useDispatch,useSelector} from 'react-redux';
-import { AUTH_LOGOUT } from '../../../constant/actionTypes';
 import { changePassword } from '../../../actions/auth';
 import { useNavigate,useLocation } from 'react-router';
+import { AUTH_LOGOUT } from '../../../constant/actionTypes';
 import decode from 'jwt-decode';
 
 
@@ -22,6 +21,23 @@ export default function MenuAppBar() {
   const {isLoading,message} = useSelector(state=> state.auth);
 
   const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+
+  useEffect(()=>{
+    const token = user?.token;
+    if(token){
+      const decodedToken = decode(token);
+      if(decodedToken.exp * 1000 < new Date().getTime())
+        handleLogout();
+    }else{
+      handleLogout();
+    }
+  },[]);
+
+  const handleLogout = () =>{
+    dispatch({type: AUTH_LOGOUT});
+    navigate(`/login`);
+    setUser(null);
+  }
 
   const[userPass,setUserPass] = useState({
     oldPassword:null,
@@ -57,25 +73,9 @@ export default function MenuAppBar() {
     setAnchorEl(null);
     handleOpenDialog();
   };
-
-  const handleLogout = () =>{
-    dispatch({type: AUTH_LOGOUT});
-    navigate(`/login`);
-    setUser(null);
-  }
-
   //  uncomment code below to enable authentication
 
-  // useEffect(()=>{
-  //   const token = user?.token;
-  //   if(token){
-  //     const decodedToken = decode(token);
-  //     if(decodedToken.exp * 1000 < new Date().getTime())
-  //       handleLogout();
-  //   }else{
-  //     handleLogout();
-  //   }
-  // },[]);
+
 
   
 

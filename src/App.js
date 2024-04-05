@@ -16,15 +16,11 @@ const App = () =>{
         <BrowserRouter>
             <LocalizationProvider dateAdapter={AdapterMoment}>
             <Routes>
-                {/* <Route index path="/" element={<Navigate to="/purchase-orders"/>} />
+                <Route index path="/" element={<Navigate to="/mold-details"/>} />   
                 <Route path="/login" element={<Login/>} />
-                <Route path="/purchase-orders" element={<Home/>} />
-                <Route path="/purchase-orders/search" element={<Home/>} />
-                <Route path="/purchase-order-detail/:id" element={<PurchaseOrder/>} />
-                <Route path="*" element={<Navigate to="/purchase-orders"/>} /> */}
-                <Route index path="/" element={<Navigate to="/mold-details"/>} />
                 <Route path="/mold-details" element={<MoldDetails/>} />
-                <Route path="/login" element={<Login/>} />
+                <Route path="/mold-details/search" element={<MoldDetails/>} />
+                <Route path="*" element={<Navigate to="/mold-details"/>} />
             </Routes>
             </LocalizationProvider>
         </BrowserRouter>

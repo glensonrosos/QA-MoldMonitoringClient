@@ -19,12 +19,15 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
 
     const { isLoading, message} = useSelector(state => state.molds);
 
+    const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+    //`${user?.result?.firstname} ${user?.result?.lastname}`
+
     const [input,setInput] = useState({
         _id:null,
         moldNumber:null,
         validationDate:null,
         life:null,
-        threshold:null,
+        additionalLife:null,
         condition:null,
         remarks:null 
     });
@@ -36,7 +39,7 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
                 moldNumber: moldSelected?.moldNumber,
                 validationDate: moldSelected?.validationDate,
                 life: moldSelected?.life,
-                threshold: moldSelected?.threshold,
+                additionalLife: moldSelected?.additionalLife,
                 condition: moldSelected?.condition,
                 remarks: moldSelected?.remarks,
             })
@@ -57,16 +60,16 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
             moldNumber:null,
             validationDate:null,
             life:null,
-            threshold:null,
+            additionalLife:null,
             condition:null,
             remarks:null 
         });
     }
 
     const conditions = [
-        { label: 'Bad', name: 'bad',color: 'error'},
         { label: 'Good', name: 'good',color: 'success'},
-        { label: 'With Issues', name: 'with_issues',color: 'warning'},
+        { label: 'Bad', name: 'bad',color: 'error'},
+        { label: 'Near Validation', name: 'near_validation',color: 'warning'},
         { label: 'For Validation', name:'for_validation',color: 'primary'},
       ];
 
@@ -115,8 +118,8 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
             flag = false;
         }
 
-        if(parseInt(input.threshold) >= parseInt(input.life) || parseInt(input.threshold) > 999999 || input.threshold == null){
-            setSnackbar({ children: `Threshold must be lesser than Life, `, severity: 'error' });
+        if(parseInt(input.additionalLife) < 0  || parseInt(input.additionalLife) > 999999 || input.additionalLife == null){
+            setSnackbar({ children: `Additional Life is invalid, `, severity: 'error' });
             flag = false;
         }
 
@@ -128,7 +131,7 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
         }
         if(flag){
            
-            dispatch(editMoldWithId(input._id,{...input,lastEditdBy:"Dave Mario Lagura"}));
+            dispatch(editMoldWithId(input._id,{...input,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
         
             inputClear();
             handleCloseEditDeleteModal();
@@ -139,7 +142,10 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
      <>
         {/* dialog box */}
       <Dialog open={openEditDeleteModal} onClose={handleCloseEditDeleteModal}>
-        <DialogTitle>Edit / Mold - <span style={{backgroundColor:'#feca57'}}>{itemSelected?.itemCode}</span></DialogTitle>
+        <DialogTitle>Edit / Mold -<span style={{backgroundColor:'#feca57',padding:3}}>{itemSelected?.itemCode}</span>
+            <span style={{color:'red',padding:3}}>----</span>
+            <span style={{backgroundColor:'#feca57',padding:3}}>{itemSelected?.supplier?.name}</span>
+        </DialogTitle>
         <DialogContent>
             <Box component="form" noValidate autoComplete="off"
                     sx={{
@@ -148,7 +154,7 @@ const EditDeleteMold = ({ openEditDeleteModal, handleCloseEditDeleteModal,moldSe
                 <TextField label="Mold #" disabled onChange={(e)=>handleOnChangeInput("moldNumber",e)} value={input.moldNumber || ''} variant="outlined" size='small' fullWidth/>
                 <DatePicker label="Validation Date" maxDate={moment().add(3,'y')} size='small' minDate={moment('2000','YYYY')}  onChange={(e)=>handleOnChangeInput("validationDate",e)} value={moment(input.validationDate)} />
                 <TextField  label="Mold Life" type='number' onChange={(e)=>handleOnChangeInput("life",e)} value={input.life || ''} size='small' variant="outlined" fullWidth/>
-                <TextField  label="Warning Threshold" type='number' onChange={(e)=>handleOnChangeInput("threshold",e)} value={input.threshold || ''} size='small' variant="outlined" fullWidth/>
+                <TextField  label="Additional Life" type='number' onChange={(e)=>handleOnChangeInput("additionalLife",e)} value={input.additionalLife || ''} size='small' variant="outlined" fullWidth/>
                 <Autocomplete
                     disablePortal
                     size='small'

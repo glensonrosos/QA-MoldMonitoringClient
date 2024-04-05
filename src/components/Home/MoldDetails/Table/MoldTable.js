@@ -16,6 +16,8 @@ import { getMoldsByItemId} from '../../../../actions/molds';
 import { useDispatch,useSelector } from 'react-redux'
 import moment from 'moment';
 
+import { TableVirtuoso } from 'react-virtuoso';
+
 // MODAL
 import AddMold from '../Modal/AddMold';
 import EditDeleteMold from '../Modal/EditDeleteMold';
@@ -29,47 +31,104 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
 
     const [rows, setRows] = useState([]);
 
-    const rowsData = [];
-
     const [itemSelected,setItemSelected] = useState(null);
     const [moldSelected,setMoldSelected] = useState(null);
 
-    const [age, setAge] = React.useState('mold');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedColumn, setSelectedColumn] = React.useState('mold');
 
-    const handleChange =(e) => {
-        setAge(e.target.value);
+    const handleSearchInputChange = (event) => {
+      setSearchQuery(event.target.value);
     };
 
-    useEffect(() => {
-        if (!isLoading && molds) {
-            setRows([]);
-            molds?.map(item => {
-                rowsData.push(
-                    createData2(
-                        <Grid container direction="column" justifyContent="flex-start" alignItems="flex-start">
-                            <Grid xs={6} md={6} lg={6} >
-                                <IconButton onClick={()=>{setMoldSelected(item); handleOpenEditDeleteModal(); }} aria-label="delete" size='small' color='primary' sx={{border:1,mt:0.5}}>
-                                    <Edit sx={{fontSize:20}}/>
-                                </IconButton>
-                            </Grid>
-                            <Grid xs={6} md={6} lg={6}>
-                                <IconButton onClick={()=>{dispatch(getDeliveriesByMoldId(item._id)); setMoldSelected(item); handleOpenHistoryModal(); }} aria-label="delete" size='small' color='success' sx={{border:1,mt:0.5}}>
-                                    <LocalShipping sx={{fontSize:20}} />
-                                </IconButton>
-                            </Grid>               
-                        </Grid>
-                        ,item?.moldNumber,moment(item?.validationDate).format('L'),
-                        `${parseInt(item?.life)-parseInt(item?.delivered)}`,
-                        <Chip label={item?.condition?.label} 
-                            color={item?.condition?.color} 
-                        size='medium' variant="contained" />
-                        ,item?.remarks));
-                return null;
-            });
+    const handleChange =(e) => {
+      setSelectedColumn(e.target.value);
+      setSearchQuery('')
+    };
 
-            setRows([...rowsData]);
-        }
-    }, [isLoading, molds]);
+
+    function createData(select,moldnumber, validationdate, moldlife,condition,remarks) {
+        return { select,moldnumber, validationdate, moldlife,condition,remarks };
+    }
+
+    useEffect(() => {
+      if (!isLoading && molds) {
+          const filteredRows = molds.map(item => {
+              return createData(
+                <Grid container direction="column" justifyContent="flex-start" alignItems="flex-start">
+                    <Grid xs={6} md={6} lg={6} >
+                        <IconButton onClick={async () => {
+                            await setMoldSelected(item);
+
+                            handleOpenEditDeleteModal(); 
+                          }} aria-label="delete" size='small' color='primary' sx={{border:1,mt:0.5}}>
+                            <Edit sx={{fontSize:20}}/>
+                        </IconButton>
+                    </Grid>
+                    <Grid xs={6} md={6} lg={6}>
+                        <IconButton onClick={async () =>{
+                            await setMoldSelected(item);
+                            dispatch(getDeliveriesByMoldId(item._id)); 
+                            handleOpenHistoryModal(); 
+                          }} aria-label="delete" size='small' color='success' sx={{border:1,mt:0.5}}>
+                            <LocalShipping sx={{fontSize:20}} />
+                        </IconButton>
+                    </Grid>               
+                </Grid>
+                ,item?.moldNumber,moment(item?.validationDate).format('L'),
+                `${(parseInt(item?.life) + parseInt(item?.additionalLife)) - parseInt(item?.delivered)}`,
+                <Chip label={item?.condition?.label} 
+                    color={item?.condition?.color} 
+                size='medium' variant="contained" />
+                ,item?.remarks
+            );
+          }).filter(row => {
+            const searchText = searchQuery.toLowerCase();
+            switch (selectedColumn) {
+                case 'mold':
+                    return row.moldnumber.toLowerCase().includes(searchText);
+                case 'validationDate':
+                    // Check if the search query is empty
+                    if (searchText.trim() === '') {
+                        return true; // Return all rows
+                    }
+                    // Check if the search query contains a hyphen indicating a date range
+                    if (searchText.includes('-')) {
+                        const [startDate, endDate] = searchText.split('-').map(date => date.trim());
+                        const validationDate = moment(row.validationdate, 'MM/DD/YYYY');
+                        return validationDate.isBetween(moment(startDate, 'MM/DD/YYYY'), moment(endDate, 'MM/DD/YYYY'), null, '[]');
+                    } else {
+                        // Otherwise, check for an exact match
+                        return row.validationdate.toLowerCase() === searchText;
+                    }
+                case 'life':
+                    // Check if the search query is empty
+                    if (searchText.trim() === '') {
+                        return true; // Return all rows
+                    }
+                    // Check if the search query starts with '>' or '<'
+                    if (searchText.startsWith('>')) {
+                        const value = parseInt(searchText.substring(1));
+                        return parseInt(row.moldlife) > value;
+                    } else if (searchText.startsWith('<')) {
+                        const value = parseInt(searchText.substring(1));
+                        return parseInt(row.moldlife) < value;
+                    } else {
+                        // Otherwise, check for an exact match
+                        return parseInt(row.moldlife) === parseInt(searchText);
+                    }
+                case 'condition':
+                    return row.condition.props.label.toLowerCase().includes(searchText);
+                case 'remarks':
+                    return row.remarks.toLowerCase().includes(searchText);
+                default:
+                    return true;
+            }
+        });
+          setRows(filteredRows);
+      }
+  }, [isLoading, molds, searchQuery, selectedColumn]);
+  
 
     //REFS
     sharedStateRef.itemSelected = itemSelected;
@@ -102,18 +161,63 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
         setOpenHistoryModal(false);
     };
 
-    const columns2 = [
-        { id: 'select', label: '',maxWidth: 10},
-        { id: 'moldnumber', label: 'Mold #',maxWidth: 10},
-        { id: 'validationdate', label: 'Validation Date',maxWidth:200 },
-        { id: 'moldlife', label: 'Life', maxWidth: 10 },
-        { id: 'condition', label: 'Condition', maxWidth: 10 },
-        { id: 'remarks', label: 'Remarks', maxWidth: 10 },
+    const columns = [
+        { dataKey: 'select', label: '',width:5},
+        { dataKey: 'moldnumber', label: 'Mold #',width: 5},
+        { dataKey: 'validationdate', label: 'Validation Date',width:25},
+        { dataKey: 'moldlife', label: 'Remaing Life', width: 10},
+        { dataKey: 'condition', label: 'Condition', width: 45},
+        { dataKey: 'remarks', label: 'Remarks', width: 90 },
       ];
+
+    // VERTOSO TABLE START
+    const VirtuosoTableComponents = {
+        Scroller: React.forwardRef((props, ref) => (
+          <TableContainer component={Paper} {...props} ref={ref}  />
+        )),
+        Table: (props) => (
+          <Table {...props} sx={{ borderCollapse: 'separate', tableLayout: 'fixed' }}  />
+        ),
+        TableHead,
+        TableRow: ({ item: _item, ...props }) => <TableRow {...props} />,
+        TableBody: React.forwardRef((props, ref) => <TableBody {...props} ref={ref} />),
+      };
       
-      function createData2(select,moldnumber, validationdate, moldlife,condition,remarks) {
-        return { select,moldnumber, validationdate, moldlife,condition,remarks };
+      function fixedHeaderContent() {
+        return (
+          <TableRow>
+            {columns.map((column) => (
+              <TableCell
+                key={column.dataKey}
+                variant="head"
+                align={column.numeric || false ? 'right' : 'left'}
+                style={{ width: column.width,paddingTop:1,paddingBottom:1 }}
+                sx={{borderLeft: '1px solid #fff',backgroundColor:'#222f3e',color:'#fff'}}
+              >
+                {column.label}
+              </TableCell>
+            ))}
+          </TableRow>
+        );
       }
+
+      function rowContent(_index, row) {
+        return (
+          <React.Fragment>
+            {columns.map((column) => (
+              <TableCell
+                key={column.dataKey}
+                align={column.numeric || false ? 'right' : 'left'}
+                sx={{borderLeft: '1px solid grey',paddingTop:0.5,paddingBottom:0.5}}
+              >
+                {row[column.dataKey]}
+              </TableCell>
+            ))}
+          </React.Fragment>
+        );
+      }
+
+    // VERTOSO TABLE END
     
     return (
         <Paper elevation={20} sx={{padding:1}}> 
@@ -124,22 +228,22 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
          <Typography variant="h5"> Mold Details </Typography>
             <Grid container spacing={5} direction="row" justifyContent="center">
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">ItemCode: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.itemCode || ''}</span> </Typography><br/><br/>
-                    <Typography variant="p">Desc: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.itemDescription || ''}</span></Typography><br/> <br/>
+                    <Typography variant="p">ItemCode: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.itemCode || ''}</span> </Typography><br/><br/>
+                    <Typography variant="p">Desc: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.itemDescription || ''}</span></Typography><br/> <br/>
                     <Button variant="contained" color="primary" size="small"  startIcon={<Save/>} onClick={handleOpenAddModal}  > Add Mold </Button>
                 </Grid>
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">Buyer: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.buyer?.name || ''}</span> </Typography><br/><br/>
-                    <Typography variant="p">Supplier: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.supplier?.name || ''} </span></Typography>
+                    <Typography variant="p">Buyer: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.buyer?.name || ''}</span> </Typography><br/><br/>
+                    <Typography variant="p">Supplier: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.supplier?.name || ''} </span></Typography>
                 </Grid>
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">Material: <span style={{fontWeight:'bold',backgroundColor:'#feca57'}}>{itemSelected?.material?.name || ''}</span></Typography><br/><br/>
+                    <Typography variant="p">Material: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.material?.name || ''}</span></Typography><br/><br/>
                     <FormControl fullWidth>
                     <InputLabel id="demo-simple-select-label" >Column</InputLabel>
                         <Select
                             labelId="demo-simple-select-label"
                             id="demo-simple-select"
-                            value={age}
+                            value={selectedColumn}
                             label="Column"
                             size='small'
                             onChange={handleChange}
@@ -151,84 +255,19 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
                             <MenuItem value='remarks'>Remarks</MenuItem>
                         </Select>
                     </FormControl><br/><br/>
-                    <TextField size='small' onChange={()=>{}} value={''} fullWidth label="SEARCH" variant="outlined" />
+                    <TextField size='small' onChange={handleSearchInputChange} value={searchQuery} fullWidth label="SEARCH" variant="outlined" />
                 </Grid>
             </Grid>
         <Grid container spacing={2} justifyContent="center">  
             <Grid xs={12} md={12} lg={12}>
-            <Paper elevation={10} sx={{ width: '100%', overflow: 'hidden' }}>
-                <TableContainer sx={{ maxHeight: 500 }}>
-                    <Table stickyHeader aria-label="sticky table" sx={{ minWidth: 650 }} size="small">
-                    <TableHead>
-                        <TableRow>
-                        {columns2.map((column) => (
-                            <TableCell
-                            key={column.id}
-                            align={column.align}
-                            style={{ minWidth: column.minWidth, }}
-                            sx={{borderLeft: '1px solid #fff',backgroundColor:'#222f3e',color:'#fff'}}
-                            >
-                            {column.label}
-                            </TableCell>
-                        ))}
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {
-                        rows
-                        .map((row,i) => {
-                            return (
-                            <TableRow hover role="checkbox" tabIndex={-1} key={i}>
-                                {columns2.map((column) => {
-                                const value = row[column.id];
-                                return (
-                                    <TableCell key={column.id} align={column.align} sx={{borderLeft: '1px solid grey'}}>
-                                    {column.format && typeof value === 'number'
-                                        ? column.format(value)
-                                        : value}
-                                    </TableCell>
-                                );
-                                })}
-                            </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                    </Table>
-                </TableContainer>
+            <Paper elevation={10} style={{ height: molds.length > 0 ? 500 : 200, width: 'auto'}}>
+                <TableVirtuoso
+                    data={rows}
+                    components={VirtuosoTableComponents}
+                    fixedHeaderContent={fixedHeaderContent}
+                    itemContent={rowContent}
+                  />
                 </Paper>
-                <Grid container spacing={2} alignItems="end" justifyContent="end">
-                <Grid xs={12} md={11} lg={11}>
-                    <Box sx={{mt:3}}> </Box>
-                <Stack spacing={2}>
-                    <Pagination 
-                    count={0} 
-                    page={ 1}
-                    variant="outlined" 
-                    shape="rounded" 
-                    color="secondary"
-                    renderItem={(item)=>(
-                        <PaginationItem 
-                        { ...item }
-                        component={Button}
-                        onClick={()=>{}}
-                        />
-                    )}
-                    />
-                </Stack>
-                    </Grid>
-                </Grid>
-                <Grid xs={12} md={1} lg={1}>
-                </Grid>
-                {/* {!!snackbar && (
-                <Snackbar
-                    open
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                    autoHideDuration={5000}
-                    onClose={handleCloseSnackbar}
-                > 
-                    <Alert {...snackbar} onClose={handleCloseSnackbar} variant="filled" />
-                </Snackbar>
-                )} */}
             </Grid>
         </Grid>
         </Paper>

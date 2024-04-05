@@ -2,7 +2,7 @@ import React, { useEffect,useState } from 'react';
 import {Box,Paper,Typography,TextField,Autocomplete,Button,Backdrop,CircularProgress,Snackbar,Alert} from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 
-import {Save} from '@mui/icons-material';
+import {Save,SystemUpdateAlt,Search,Clear} from '@mui/icons-material';
 
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -12,21 +12,42 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {getBuyers} from '../../../../actions/buyers';
 import {getMaterials} from '../../../../actions/materials';
 import {getSuppliers} from '../../../../actions/suppliers';
-import {createItem,editItem} from '../../../../actions/items';
+import {createItem,editItem,getItemsBySearch,getItems} from '../../../../actions/items';
 
 import { useSelector,useDispatch } from 'react-redux';
 
+import {useNavigate,useLocation} from 'react-router-dom';
+
+import ReportsMold from '../Modal/ReportsMold';
+
+import { AUTH_LOGOUT } from '../../../../constant/actionTypes';
+import decode from 'jwt-decode';
+
+
+
 const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     const dispatch = useDispatch();
+    const navigate = useNavigate();
+
 
     const {buyers,isLoading:buyerLoading} = useSelector(state=> state.buyers);
     const {materials,isLoading:materialLoading} = useSelector(state=> state.materials);
     const {suppliers,isLoading:supplierLoading} = useSelector(state=> state.suppliers);
 
+    const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+
+    const handleLogout = () =>{
+      dispatch({type: AUTH_LOGOUT});
+      navigate(`/login`);
+      setUser(null);
+    }
+
+
     useEffect(()=>{
         dispatch(getBuyers());
         dispatch(getMaterials());
         dispatch(getSuppliers());
+        //alert('useEffect => get all options for buyer,material,supplier');
     },[dispatch])
 
     const [input,setInput] = useState({
@@ -36,7 +57,16 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         supplier:null,
         buyer:null,
         material:null,
+        prevSuplier:null
     });
+
+    const [openReportsModal, setOpenReportsModal] = useState(false);
+    const handleOpenReportsModal = () => {
+            setOpenReportsModal(true);
+    };
+    const handleCloseReportsModal = () => {
+        setOpenReportsModal(false);
+    };
 
     const [isEditButton,setIsEditButton] = useState(false);
    
@@ -50,7 +80,17 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     const [inputSupplier,setInputSupplier] = useState([]);
 
     useEffect(()=>{
-        if(buyers?.length > 0 && suppliers?.length > 0 && materials?.length > 0 ){
+
+        const token = user?.token;
+        if(token){
+          const decodedToken = decode(token);
+          if(decodedToken.exp * 1000 < new Date().getTime())
+            handleLogout();
+        }else{
+          handleLogout();
+        }
+
+        if(buyers.length > 0 && suppliers.length > 0 && materials.length > 0 ){
             setInput({
                 _id:null,
                 itemCode:null,
@@ -58,12 +98,16 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 supplier:null,
                 buyer:null,
                 material:null,
+                prevSuplier:null,
             });
             setInputBuyer(buyers);
             setInputMaterial(materials);
             setInputSupplier(suppliers);
+
+           //alert(`useEffect => ${user?.result?.role}`);
         }
-    },[buyers,materials,suppliers]);
+
+    },[buyers,materials,suppliers,user]);
 
     const handleOnChangeInput = (name,e,val=null) =>{
         
@@ -82,8 +126,33 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     const [snackbar, setSnackbar] = React.useState(null);
     const handleCloseSnackbar = () => setSnackbar(null);
 
+    const searchItem =  () =>{
 
-    const AddItem =  () =>{
+        if((input?.itemCode == null || input?.itemCode == '') && 
+            (input?.itemDescription == null || input?.itemDescription == '') && 
+            (input?.buyer?._id == null || input?.buyer?._id == '') && 
+            (input?.supplier?._id == null ||  input?.supplier?._id == '') &&
+            (input?.material?._id == null ||  input?.material?._id == '')){
+                dispatch(getItems(1));
+                navigate(`/mold-details?page=1`);
+        
+        }else{
+            
+            dispatch(getItemsBySearch({
+                itemcode: input?.itemCode || '',
+                itemdesc: input?.itemDescription || '',
+                buyer: input?.buyer?._id || '',
+                supplier: input?.supplier?._id || '',
+                material: input?.material?._id || '',
+                page:1}));
+        
+            navigate(`/mold-details/search?itemcode=${input?.itemCode || ''}&itemdesc=${input?.itemDescription || ''}&supplier=${input?.supplier?._id  || ''}&buyer=${input?.buyer?._id  || ''}&material=${input?.material?._id || ''}&page=1`);
+        }
+        
+    }
+
+
+    const AddItem = async () =>{
 
         let flag = true;
 
@@ -93,7 +162,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             flag = false;
         }
 
-        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{5,40}$/;
+        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{3,40}$/;
         if(!itemDescReg.test(input.itemDescription)){
             setSnackbar({ children: `Item Description inputed is invalid, `, severity: 'error' });
             flag = false;
@@ -119,7 +188,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
 
         if(flag){
 
-            dispatch(createItem({...input,itemCode:input.itemCode.toUpperCase(),lastEditdBy:"Dave Mario Lagura"}));
+           await dispatch(createItem({...input,itemCode:input.itemCode.toUpperCase(),lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
             setInput({
                 _id:null,
                 itemCode:null,
@@ -127,15 +196,19 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 supplier:null,
                 buyer:null,
                 material:null,
+                prevSuplier:null
             });
-            setSnackbar({ children: `Successfully added`, severity: 'success' });
+
+            navigate(`/mold-details?page=1`);
+            await dispatch(getItems(1));
+           // setSnackbar({ children: `Successfully added`, severity: 'success' });
         }
     }
 
     const EditItem = async () =>{
         let flag = true;
 
-        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{5,40}$/;
+        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{3,40}$/;
         if(!itemDescReg.test(input.itemDescription)){
             setSnackbar({ children: `Item Description inputed is invalid, `, severity: 'error' });
             flag = false;
@@ -161,7 +234,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
 
         if(flag){
 
-            await dispatch(editItem(input._id,{...input,lastEditdBy:"Dave Mario Lagura"}));
+            await dispatch(editItem(input._id,{...input,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
             setInput({
                 _id:null,
                 itemCode:null,
@@ -169,9 +242,10 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 supplier:null,
                 buyer:null,
                 material:null,
+                prevSuplier:null
             });
             setIsEditButton(false);
-            setSnackbar({ children: `Edited Successfully`, severity: 'success' });
+            
         }
     }
 
@@ -183,6 +257,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             supplier:null,
             buyer:null,
             material:null,
+            prevSuplier:null
         });
 
         setIsEditButton(false);
@@ -207,17 +282,27 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={buyerLoading || materialLoading || supplierLoading}>
                 <CircularProgress color="inherit" />
             </Backdrop>
-            
-            <Paper elevation={6} sx={{padding:2}}>    
-                <Typography variant="h6"> Search / Add Item </Typography><br/>
+            <ReportsMold openReportsModal={openReportsModal} handleCloseReportsModal={handleCloseReportsModal}/>
+            <Paper elevation={6} sx={{padding:2}}>
+                    <Grid container spacing={2} direction="row" justifyContent="space-between">
+                        <Grid xs={8} md={8} lg={8}>
+                            <Typography variant="h6"> Search / Add Item </Typography><br/>
+                        </Grid>
+                        <Grid xs={3} md={3} lg={3}>
+                            <Button size='small' variant="contained" color="success" startIcon={<SystemUpdateAlt/>}  onClick={handleOpenReportsModal}  >Gen. Report </Button>
+                        </Grid>
+                    </Grid>
                     <Grid container spacing={2} direction="row" justifyContent="center">
                         <Grid xs={6} md={6} lg={6}>
                             <Box component="form" noValidate autoComplete="off"  sx={{
                             '& .MuiTextField-root': { m: 1, width: '40ch' },
                         }}>
-                                <TextField size='small' disabled={isEditButton} onChange={(e)=>handleOnChangeInput("itemCode",e)} value={input.itemCode || ''} fullWidth label="Item Code" variant="outlined" />
+                                <TextField size='small' 
+                                    disabled={isEditButton}
+                                 onChange={(e)=>handleOnChangeInput("itemCode",e)} value={input.itemCode || ''} fullWidth label="Item Code" variant="outlined" />
                                 <TextField size='small' onChange={(e)=>handleOnChangeInput("itemDescription",e)} value={input.itemDescription || ''}  multiline rows={2} fullWidth label="Item Description" variant="outlined" />
                                 <Autocomplete
+                                    //disabled={isEditButton}
                                     size='small'
                                     disablePortal
                                     id="supplierId"
@@ -271,10 +356,10 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                             <Button size='small' variant="contained" color={isEditButton ? `success` : `primary`} startIcon={<Save/>} fullWidth onClick={isEditButton ? EditItem :AddItem}  > {isEditButton ? `Edit Item` : `Add Item`} </Button>
                         </Grid>
                         <Grid xs={4} md={4} lg={4}>
-                            <Button size='small' variant="contained" color="error" startIcon={<Save/>} fullWidth onClick={clearItem}  > Clear </Button>
+                            <Button size='small' variant="contained" color="error" startIcon={<Clear/>} fullWidth onClick={clearItem}  > Clear </Button>
                         </Grid>
                         <Grid xs={4} md={4} lg={4}>
-                            <Button size='small' variant="contained" color="warning" startIcon={<Save/>} fullWidth onClick={()=>{}}  > Search Item </Button>  
+                            <Button size='small' variant="contained" color="warning" startIcon={<Search/>} fullWidth onClick={searchItem}  > Search Item </Button>  
                         </Grid>
                     </Grid>
                     <div>
@@ -289,7 +374,6 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                             </Snackbar>
                         )}
                     </div>
-
             </Paper>
             </AccordionDetails>
             </Accordion>

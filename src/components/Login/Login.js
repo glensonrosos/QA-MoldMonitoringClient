@@ -3,10 +3,16 @@ import {Avatar,Button,CssBaseline,TextField,FormControlLabel,Checkbox,Link,
     Paper,Box,Grid,Typography,Badge,Stack,Alert,Snackbar} from '@mui/material'
 import {LockOutlined} from '@mui/icons-material/';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import PebaImage from '../images/PebaImage.jpeg';
+import PebaImage from '../images/mold.png';
 import {useDispatch,useSelector} from 'react-redux';
 import { useNavigate } from 'react-router';
 import { signIn } from '../../actions/auth';
+
+// DEPARTMENT
+// 65fd1ff34a6643e95585e95c - QA
+// 65fd20084a6643e95585e95d - IQC
+// 65fd20114a6643e95585e95e - Production
+// 65fd201d4a6643e95585e95f - Purchasing
 
 
 
@@ -30,7 +36,6 @@ const defaultTheme = createTheme();
 export default function SignInSide() {
 
   const {authData,isLoading} = useSelector(state => state.auth);
-  const {isLoading:isPOLoading,reqAttDepts} = useSelector(state => state.purchaseOrders);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -43,8 +48,6 @@ export default function SignInSide() {
   //snackbar
   const [snackbar, setSnackbar] = React.useState(null);
   const handleCloseSnackbar = () => setSnackbar(null);
-
-  const [notReqAttDepts,setNotReqAttDepts] = useState(null);
 
   const onChangeText = (name,e) =>{
     setUser({
@@ -75,13 +78,6 @@ export default function SignInSide() {
       setSnackbar({ children: 'Invalid Credentials, Please try again', severity: 'error' });
   }, [isLoading]);
 
-
-
-  useEffect(()=>{
-    if(!isPOLoading && reqAttDepts){
-      setNotReqAttDepts(reqAttDepts);
-    }
-  },[isPOLoading,reqAttDepts])
 
   return (
     <ThemeProvider theme={defaultTheme}>
@@ -114,25 +110,7 @@ export default function SignInSide() {
             <Stack 
                 direction={{ xs: 'row', sm: 'row' }}
                 spacing={{ xs: 8, sm: 8, md: 8 }} useFlexGap flexWrap="wrap">
-                    
-                <Badge color="error" badgeContent={notReqAttDepts?.AM} sx={{ "& .MuiBadge-badge": { fontSize: 40, height: 45, minWidth: 45, borderRadius:50 } }}>
-                    <Link href="/am" variant="h3" >AM</Link>  
-                </Badge>
-                <Badge color="error" badgeContent={notReqAttDepts?.PD} sx={{ "& .MuiBadge-badge": { fontSize: 40, height: 45, minWidth: 45, borderRadius:50 } }}>
-                  <Link href="/pd" variant="h3" >PD</Link>    
-                </Badge>
-                <Badge color="error" badgeContent={notReqAttDepts?.PU} sx={{ "& .MuiBadge-badge": { fontSize: 40, height: 45, minWidth: 45, borderRadius:50 } }}>
-                  <Link href="/purchasing" variant="h3" >PURCH</Link>   
-                </Badge>
-                <Badge color="error" badgeContent={notReqAttDepts?.PROD} sx={{ "& .MuiBadge-badge": { fontSize: 40, height: 45, minWidth: 45, borderRadius:50 } }}>
-                  <Link href="/production" variant="h3" >PROD</Link>   
-                </Badge>
-                <Badge color="error" badgeContent={notReqAttDepts?.QA} sx={{ "& .MuiBadge-badge": { fontSize: 40, height: 45, minWidth: 45, borderRadius:50 } }}>
-                  <Link href="/qa" variant="h3" >QA</Link>    
-                </Badge>
-                <Badge color="error" badgeContent={notReqAttDepts?.LOGS} sx={{ "& .MuiBadge-badge": { fontSize: 40, height: 45, minWidth: 45, borderRadius:50 } }}>
-                  <Link href="/logistics" variant="h3" >LOGS</Link>   
-                </Badge>
+              <Typography variant="h6" >MOLD MONITORING Program</Typography>
             </Stack>
             <Avatar sx={{ m: 1, bgcolor: 'secondary.main',mt:5 }}>
               <LockOutlined />
@@ -165,6 +143,7 @@ export default function SignInSide() {
               <Button
                 fullWidth
                 variant="contained"
+                color='secondary'
                 sx={{ mt: 3, mb: 2 }}
                 onClick={handleSubmit}
               >

@@ -5,26 +5,48 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
-import { Box, Button, Checkbox, Typography, Pagination, PaginationItem, Stack, CircularProgress } from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2'
+import { Box, Button, Checkbox,Snackbar,Alert, Typography, Pagination, PaginationItem, Stack, } from '@mui/material';
+import Grid from '@mui/material/Unstable_Grid2';
 
 import { useDispatch, useSelector } from 'react-redux'
 
-import { getItems } from '../../../../actions/items';
+import {useNavigate,useLocation} from 'react-router-dom';
+
+import { getItems,setMessageNull,getItemsBySearch} from '../../../../actions/items';
 import { getMoldsByItemId } from '../../../../actions/molds';
+
+function useQuery(){
+    return new URLSearchParams(useLocation().search);
+  }
 
 const ItemTable = ({setSharedStateRef }) => {
 
     const dispatch = useDispatch();
+    const navigate = useNavigate();
 
-    const { isLoading, items } = useSelector(state => state.items);
+    const { isLoading, items, message, numberOfPages } = useSelector(state => state.items);
+
+ 
+
+    
+    const query = useQuery();
+    const queryPage = query.get('page') || 1;
+    const searchItemCode = query.get('itemcode');
+    const searchItemDesc = query.get('itemdesc');
+    const searchSupplier = query.get('supplier');
+    const searchBuyer = query.get('buyer');
+    const searchMaterial = query.get('material');
+
+    
+    const [snackbar, setSnackbar] = React.useState(null);
+    const handleCloseSnackbar = () => setSnackbar(null);
+
 
     useEffect(() => {
-        dispatch(getItems());
-    }, [dispatch])
-
+        navigate(`/mold-details?page=1`);
+        dispatch(getItems(1));
+    }, [dispatch]);
     
     const columns = [
         { id: 'select', label: '', maxWidth: 10 },
@@ -55,18 +77,17 @@ const ItemTable = ({setSharedStateRef }) => {
         const index = itemIndex(item);
         setSelectedIndex(index === selectedIndex ? -1 : index);
         setSharedStateRef.setItemSelected(item);
-        dispatch(getMoldsByItemId(item?._id));
       
+        dispatch(getMoldsByItemId(item?._id));
     };
 
     const itemIndex = (item) => {
-        return items.findIndex(i => i.itemCode === item.itemCode);
+        return items.findIndex(i => i._id === item._id);
     };
 
     useEffect(() => {
-        if (!isLoading && items.length > 0) {
+        if (!isLoading) {
             setRows([]);
-
             items?.map(item => {
                 rowsData.push(
                     createData(
@@ -76,15 +97,57 @@ const ItemTable = ({setSharedStateRef }) => {
                             size='small'
                             style={{ padding: 0 }} />,
                         <Typography sx={{ color: "#d63031", cursor: "pointer" }} variant='body1'
-                            onClick={() => { setSharedStateRef.current({ ...item }); setSharedStateRef.button(true) }}>{item.itemCode}</Typography>
+                            onClick={() => { setSharedStateRef.current({ ...item,prevSupplier:item.supplier }); setSharedStateRef.button(true) }}>{item.itemCode}</Typography>
                         , item.itemDescription, item.supplier.name, item.buyer.name, item.material.name));
                 return null;
             });
-
             setRows([...rowsData]);
         }
     }, [isLoading, items, selectedIndex]);
 
+    useEffect(() =>{
+        if(!isLoading && message === 'duplicate'){
+            setSnackbar({ children: `ItemCode with Supplier Inputed already exist`, severity: 'error' });
+            dispatch(setMessageNull());
+        }
+        else if (!isLoading && message === 'good'){
+            setSnackbar({ children: `Succesfully Added Item`, severity: 'success' });
+            dispatch(setMessageNull());
+        }
+        // edit
+        else if(!isLoading && message === 'edit duplicate'){
+            setSnackbar({ children: `ItemCode with Supplier Inputed already exist`, severity: 'error' });
+            dispatch(setMessageNull());
+        }
+        else if (!isLoading && message === 'edit good'){
+            setSnackbar({ children: `Succesfully Added Item`, severity: 'success' });
+            dispatch(setMessageNull());
+        }
+        
+    },[isLoading,message]);
+
+
+    const handleChangePage = (newPage) =>{
+        if((searchItemCode == null || searchItemCode == '') && 
+            (searchItemDesc == null || searchItemDesc == '') && 
+            (searchBuyer == null || searchBuyer == '') && 
+            (searchSupplier == null ||  searchSupplier == '') &&
+            (searchMaterial == null ||  searchMaterial == '')){
+        
+          dispatch(getItems(newPage));      
+          navigate(`/mold-details?page=${newPage}`);
+        }else{
+            dispatch(getItemsBySearch({
+                itemcode: searchItemCode || '',
+                itemdesc: searchItemDesc || '',
+                buyer: searchBuyer || '',
+                supplier: searchSupplier || '',
+                material:searchMaterial || '',
+                page: newPage}));
+            navigate(`/mold-details/search?itemcode=${searchItemCode || ''}&itemdesc=${searchItemDesc || ''}&supplier=${searchSupplier || ''}&buyer=${searchBuyer || ''}&material=${searchMaterial || ''}&page=${newPage}`);
+        }
+        
+      }
 
     return (
 
@@ -138,24 +201,35 @@ const ItemTable = ({setSharedStateRef }) => {
                         <Grid xs={12} md={12} lg={12}>
                             <Box sx={{ mt: 3 }}> </Box>
                             <Stack spacing={2}>
-                                <Pagination
-                                    count={0}
-                                    page={1}
-                                    variant="outlined"
-                                    shape="rounded"
-                                    color="secondary"
-                                    renderItem={(item) => (
-                                        <PaginationItem
-                                            {...item}
-                                            component={Button}
-                                            onClick={() => { }}
-                                        />
-                                    )}
+                            <Pagination 
+                                count={numberOfPages} 
+                                page={Number(queryPage) || 1}
+                                variant="outlined" 
+                                shape="rounded" 
+                                color="secondary"
+                                renderItem={(item)=>(
+                                    <PaginationItem 
+                                    { ...item }
+                                    component={Button}
+                                    onClick={()=>handleChangePage(item.page)}
+                                    />
+                                )}
                                 />
                             </Stack>
                         </Grid>
                     </Grid>
-
+                    <div>
+                        {!!snackbar && (
+                            <Snackbar
+                                open
+                                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                onClose={handleCloseSnackbar}
+                                autoHideDuration={4000}
+                            > 
+                                <Alert {...snackbar} onClose={handleCloseSnackbar} variant="filled" />
+                            </Snackbar>
+                        )}
+                    </div>
                 </Grid>
             </Grid>
         </Paper>
