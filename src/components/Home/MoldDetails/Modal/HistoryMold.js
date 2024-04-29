@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 
 
 import { Box,Button,Backdrop,CircularProgress,Typography,AppBar,Toolbar,IconButton,Table,TableBody,TableCell,
-  TableContainer,TableHead,TableRow,Snackbar,Alert,Paper,TextField,FormControl,InputLabel,Select,MenuItem } from '@mui/material';
+  TableContainer,TableHead,TableRow,Snackbar,Alert,Paper,Autocomplete,TextField,FormControl,InputLabel,Select,MenuItem } from '@mui/material';
 
 
 import Dialog from '@mui/material/Dialog';
@@ -20,10 +20,11 @@ import moment from 'moment';
 import { TableVirtuoso } from 'react-virtuoso';
 
 
-import {addDelivery} from '../../../../actions/deliveries';
-import {editMoldWithId} from '../../../../actions/molds'
+import {addDelivery,editDelivery,getDeliveriesByMoldId,deleteDeliveriesByMoldId} from '../../../../actions/deliveries';
+import {editMoldWithId,findMold} from '../../../../actions/molds'
 
 import { useDispatch,useSelector } from 'react-redux';
+import molds from '../../../../reducers/molds';
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -34,13 +35,63 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
 
   const dispatch = useDispatch();
 
+  const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+  const userDepartment = user?.result?.department?.department;
+
+  const {suppliers} = useSelector(state=> state.suppliers);
   const { isLoading, message, deliveries} = useSelector(state => state.deliveries);
+  const { isLoading:mIsLoading, moldSelected:mMoldSelected,itemSelected:mItemSelected,message:mMessage} = useSelector(state => state.molds);
+
+  //const {buyers} = useSelector(state=> state.buyers);
+
+  const [inputSupplier,setInputSupplier] = useState([]);
+  //const [inputItemCode,setInputItemCode] = useState([]);
+
+  // i stop here
+  const [moldSelectedGet, setMoldSelectedValGet] = useState(null);
+  const [itemSelectedGet, setItemSelectedGet] = useState(null);
+
+  const [findMoldCalled,setFindMoldCalled] = useState(false);
+
+  useEffect(() =>{
+    setInputSupplier(suppliers);
+    setMoldSelectedValGet({...moldSelected});
+    setItemSelectedGet({...itemSelected});
+  },[suppliers,moldSelected,itemSelected]);
+
+  useEffect(()=>{
+    if(!mIsLoading && mMessage == 'found' && mItemSelected != null && mMoldSelected != null) {
+      setMoldSelectedValGet({...mMoldSelected});
+      setItemSelectedGet({...mItemSelected});
+
+      if(findMoldCalled){
+        dispatch(getDeliveriesByMoldId(mMoldSelected?._id));
+        setFindMoldCalled(false);
+        //alert('getDeliveriesByMoldId');
+      }
+
+      setSnackbar({ children: `Mold found`, severity: 'success' });
+    }else if(!mIsLoading && mMessage == 'not found'){
+      setSnackbar({ children: `No Mold Found, Please double check your ItemCode and Mold # if correct`, severity: 'error' });
+    }
+  },[mMoldSelected,mItemSelected,mIsLoading,mMessage,findMoldCalled]);
+
+  useEffect(()=>{
+    if(itemSelectedGet != null && moldSelectedGet != null && !findMoldCalled){
+        setMoldInput({
+          ...moldInput,
+          itemCode: itemSelectedGet?.itemCode,
+          moldNumber: moldSelectedGet?.moldNumber,
+          supplier: itemSelectedGet?.supplier
+        });
+    }
+  },[moldSelectedGet,itemSelectedGet,findMoldCalled]);
+
 
   function createData(id,rowid, delivery, accept, reject, qty, purchpo,createdby,remarks) {
     return { id,rowid, delivery, accept, reject, qty, purchpo,createdby,remarks };
   }
 
-  const rowsData = [];
   const [rows,setRows] = useState([]);
   const [modalData,setModalData] = useState({
     totalRows:0,
@@ -50,12 +101,9 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
     totalAcc:0,
   });
 
-  const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
-  //`${user?.result?.firstname} ${user?.result?.lastname}`
-
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedColumn, setSelectedColumn] = React.useState('delivery');
+  const [selectedColumn, setSelectedColumn] = React.useState('purchpo');
 
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
@@ -66,8 +114,22 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
     setSearchQuery('')
   };
 
+  useEffect(()=>{
+    if(!isLoading && message == 'exceed'){
+      setSnackbar({ children: `Exceeded mold life, please review the items, `, severity: 'error' });
+    }else if (!isLoading && message === 'good'){
+      setSnackbar({ children: `Succesfully Added`, severity: 'success' });
+      dispatch(getDeliveriesByMoldId(moldSelectedGet._id)); 
+    }
+    else if (!isLoading && message === 'edited'){
+      setSnackbar({ children: `Succesfully Edited`, severity: 'success' });
+      dispatch(getDeliveriesByMoldId(moldSelectedGet._id)); 
+    }
+
+  },[isLoading,message]);
+
   useEffect(() => {
-    if (!isLoading && deliveries) {
+    if (!isLoading) {
 
       let totalQty = 0;
       let totalRej = 0;
@@ -137,7 +199,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
 
       setModalData({
         totalRows: deliveries?.length,
-        remainingLife: (parseInt(moldSelected?.life) + parseInt(moldSelected?.additionalLife)) - parseInt(totalQty),
+        remainingLife: (parseInt(moldSelectedGet?.life) + parseInt(moldSelectedGet?.additionalLife)) - parseInt(totalQty),
         totalQty,
         totalAcc,
         totalRej,
@@ -147,7 +209,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
 
 
     }
-  }, [isLoading, deliveries, searchQuery, selectedColumn, moldSelected]);
+  }, [isLoading, deliveries, searchQuery, selectedColumn, moldSelectedGet]);
   
   // Function to handle numeric search for 'Acc', 'Rej', and 'Qty' columns
   const handleNumericSearch = (value, searchText) => {
@@ -175,25 +237,24 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
   };
 
 
-  useEffect(()=>{
-    if(!isLoading && message == 'exceed'){
-        setSnackbar({ children: `Exceeded mold life, please review the items, `, severity: 'error' });
-    }else if (!isLoading && message === 'good')
-        setSnackbar({ children: `Succesfully Added`, severity: 'success' });
-  },[isLoading,message]);
+
 
   useEffect(() =>{
     //if remaining life reaches 10% of total life , update conditions accordingly
-    const nearValidation = (parseInt(moldSelected?.life) + parseInt(moldSelected?.additionalLife)) * 0.10 ;
+    const nearValidation = (parseInt(moldSelectedGet?.life) + parseInt(moldSelectedGet?.additionalLife)) * 0.10 ;
 
-    if(parseInt(nearValidation) >= parseInt(modalData.remainingLife) && moldSelected?.condition?.name == "good"){
+    if(parseInt(nearValidation) >= parseInt(modalData.remainingLife) && moldSelectedGet?.condition?.name == "good"){
 
-      dispatch(editMoldWithId(moldSelected?._id,{...moldSelected,
+      dispatch(editMoldWithId(moldSelectedGet?._id,{...moldSelectedGet,
         condition:{ label: 'Near Validation', name: 'near_validation',color: 'warning'},
-        remarks:"reaches 10% of total life",
+        lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
+    }else if(parseInt(nearValidation) < parseInt(modalData.remainingLife) && moldSelectedGet?.condition?.name == "near_validation"){
+      dispatch(editMoldWithId(moldSelectedGet?._id,{...moldSelectedGet,
+        condition:{ label: 'Good', name: 'good',color: 'success'},
         lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
     }
   },[modalData.remainingLife]);
+
 
 
   const [input,setInput] = useState({
@@ -204,6 +265,12 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
       reject:null,
       qty:null,
       remarks:null 
+  });
+
+  const [moldInput,setMoldInput] = useState({
+    supplier:null,
+    itemCode:null,
+    moldNumber:null
   });
 
   const [editInput,setEditInput] = useState({
@@ -298,7 +365,7 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
     },
     {
       width: 100,
-      label: 'Created By',
+      label: 'Last Edited By',
       dataKey: 'createdby',
     },
     {
@@ -339,13 +406,23 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
     );
   }
 
-  useEffect(()=>{
-    if(!isLoading && message == 'duplicate'){
-        setSnackbar({ children: `Mold Number Inputed already exist, `, severity: 'error' });
-    }else if (!isLoading && message === 'good')
-        setSnackbar({ children: `Succesfully Added`, severity: 'success' });
-},[isLoading,message])
-  
+  const handleOnChangeMoldInput = (name,e,val=null) =>{
+      if(name === "supplier"){
+          setMoldInput({
+              ...moldInput,
+              [name]: val 
+          });
+      }
+      else
+          setMoldInput({
+              ...moldInput,
+              [name]: e.target.value 
+          });
+  }
+
+
+
+
   function rowContent(_index, row) {
     return (
       <React.Fragment>
@@ -366,7 +443,13 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
   const EditDelivery = async () =>{
 
         let flag = true;
-        if(moldSelected?.condition?.name === 'bad') {
+
+        if(userDepartment !== "Production" && userDepartment !== "Administrator"){
+          setSnackbar({ children: `You are not allowed to make this action`, severity: 'warning'});
+          flag = false;
+        }
+
+        if(moldSelectedGet?.condition?.name === 'bad') {
           setSnackbar({ children: `cannot edit delivery, mold condition is BAD `, severity: 'error' });
           flag = false;
         }
@@ -410,14 +493,16 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
 
         if(flag && isEdit){
 
-            alert(`newRemainingLife : ${newRemainingLife} , modalData.remainingLife: ${modalData.remainingLife},
-            editInput.qty:${editInput.qty} , newRemaining:${newRemaining}
-            `)
-
-            // await dispatch(addDelivery(moldSelected._id,{...input,poNumber:input.poNumber.toUpperCase(),itemId:itemSelected._id,
-            //   moldId:moldSelected._id,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
-
-            alert('edit delivery');
+            await dispatch(editDelivery(input._id,{
+              poNumber: input.poNumber.toUpperCase(),
+              delivery: input.delivery,
+              accept:input.accept,
+              reject:input.reject,
+              qty:input.qty,
+              remarks:input.remarks,
+              lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`,
+              //updatedAt
+            }))
 
             clearInputs();
         }
@@ -427,7 +512,13 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
   const AddDelivery = async () =>{
 
         let flag = true;
-        if(moldSelected?.condition?.name === 'bad') {
+
+        if(userDepartment !== "Production" && userDepartment !== "Administrator"){
+          setSnackbar({ children: `You are not allowed to make this action`, severity: 'warning'});
+          flag = false;
+        }
+
+        if(moldSelectedGet?.condition?.name === 'bad') {
           setSnackbar({ children: `cannot add delivery, mold condition is BAD `, severity: 'error' });
           flag = false;
         }
@@ -469,12 +560,48 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
         }   
 
         if(flag && !isEdit){
-            await dispatch(addDelivery(moldSelected._id,{...input,poNumber:input.poNumber.toUpperCase(),itemId:itemSelected._id,
-              moldId:moldSelected._id,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
+            await dispatch(addDelivery(moldSelectedGet._id,{...input,poNumber:input.poNumber.toUpperCase(),itemId:itemSelectedGet._id,
+              moldId:moldSelectedGet._id,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
 
             clearInputs();
         }
     }
+
+    const onFindMold = () => {
+      let flag = true;
+
+      const findSupplier = inputSupplier.find(buy => buy?._id === moldInput.supplier?._id);
+      if(findSupplier === undefined || findSupplier === null){
+          setSnackbar({ children: `Supplier inputed is invalid`, severity: 'error' });
+          flag = false;
+      }
+
+      const itemNumberRegx = /^(?:[a-zA-Z0-9]+-?){3,15}$/;
+      if(!itemNumberRegx.test(moldInput.itemCode)) {
+          setSnackbar({ children: `Item Code inputed is invalid, `, severity: 'error' });
+          flag = false;
+      }
+
+      const moldNumberRegx = /^(?:[a-zA-Z0-9]+-?){1,15}$/;
+      if(!moldNumberRegx.test(moldInput.moldNumber)) {
+          setSnackbar({ children: `Mold # inputed is invalid, `, severity: 'error' });
+          flag = false;
+      }
+
+      if(flag){
+
+        dispatch(findMold({
+          supplierId: moldInput.supplier?._id,
+          itemCode:moldInput.itemCode.toUpperCase(),
+          moldNumber:moldInput.moldNumber.toUpperCase()
+        }));
+
+        setRows([]);
+
+        setFindMoldCalled(true);
+      }
+    }
+    
   
    
   return(
@@ -497,17 +624,37 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
             maxWidth="auto"
         >
           <AppBar sx={{ position: 'relative' }}>
-          <Toolbar>
-            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Supplier: <span style={{backgroundColor:'#feca57',color:'#000',padding:5}}>{itemSelected?.supplier?.name}</span> |
-            ItemCode: <span style={{backgroundColor:'#feca57',color:'#000',padding:5}}>{itemSelected?.itemCode}</span> | 
-            Mold #: <span style={{backgroundColor:'#feca57',color:'#000',padding:5}}>{moldSelected?.moldNumber}</span> 
-            </Typography>
+          <Toolbar sx={{backgroundColor:'#dfe6e9'}}>
+          <Box display="flex" sx={{flex:1}} flexDirection="row">
+           
+           <Autocomplete
+                    size='small'
+                    disablePortal
+                    id="supplierId"
+                    options={inputSupplier}
+                    clearOnEscape 
+                    onChange={(e,v)=>handleOnChangeMoldInput("supplier",e,v)}
+                    getOptionLabel={(option) => option.name}
+                    sx={{ width: 250, backgroundColor:'#fff', }}
+                    value={moldInput?.supplier}
+                    renderInput={(params) => <TextField {...params} label="Supplier" onKeyDown={(e) => { if (e.key === 'Enter') {onFindMold();}}} />}
+                />
+           <TextField  label="ItemCode" sx={{backgroundColor:'#fff',width: 250,ml:5}} 
+              onChange={(e,v)=>handleOnChangeMoldInput("itemCode",e,v)} value={moldInput.itemCode || ''} variant="outlined" size='small' 
+              onKeyDown={(e) => { if (e.key === 'Enter') {onFindMold();}}}/>
+
+           <TextField  label="Mold #" sx={{backgroundColor:'#fff',width: 80,ml:5}}  
+              onChange={(e,v)=>handleOnChangeMoldInput("moldNumber",e,v)} value={moldInput.moldNumber || ''} variant="outlined" size='small' 
+              onKeyDown={(e) => { if (e.key === 'Enter') {onFindMold();}}}/>
+
+          <Button onClick={onFindMold} variant="contained" sx={{ml:5 }} color="primary">Find Mold</Button>
+          </Box>
             <IconButton
                 edge="start"
                 color="inherit"
                 onClick={()=>{clearInputs();handleCloseHistoryModal(); }}
                 aria-label="close"
+                sx={{color:'#d63031'}}
               >
               <Close />
             </IconButton>
@@ -515,12 +662,12 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
         </AppBar>
     
         <DialogContent>
-        <Grid container spacing={2} alignItems="center" justifyContent="center">
-            <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={false}>
+        <Grid container spacing={1} alignItems="center" justifyContent="center">
+            <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={mIsLoading || isLoading}>
                 <CircularProgress color="inherit" />
             </Backdrop>
-            <Grid  md={8} lg={8}>
-            <Box sx={{mt:2}}>
+            <Grid md={8} lg={8}>
+            <Box>
                 <Box display="flex" flexDirection="row" justifyContent="space-between" pl={1} pr={1} pb={1}>
                     <Grid flexGrow={1} alignItems="center" justifyContent="center">
                       <Grid item flexDirection="row" justifyContent="space-between" alignItems="center">
@@ -532,14 +679,14 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                               Life Remaining :{modalData.remainingLife}
                           </Typography>
                           <Typography variant='h6' color="blue">
-                              Life: {moldSelected?.life}
+                              Life: {moldSelectedGet?.life}
                           </Typography>
                         </Box>
                       </Grid>
                       <Grid item flexDirection="row" justifyContent="space-between" alignItems="center">
                         <Box display="flex" flexDirection="row" justifyContent="space-between" >
                         <Typography variant='p'>
-                              Addiotional Life: <span style={{color:'red'}}>{moldSelected?.additionalLife}</span>
+                              Addiotional Life: <span style={{color:'red'}}>{moldSelectedGet?.additionalLife}</span>
                           </Typography>
                           <Typography  variant='p'>
                                Accepted : <span style={{color:'red'}}>{modalData.totalAcc}</span>
@@ -564,12 +711,12 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                             sx={{minWidth:150}}
                             onChange={handleChange}
                         >
+                            <MenuItem value='purchpo'>Purch PO#</MenuItem>
+                            <MenuItem value='createdby'>Created By</MenuItem>
                             <MenuItem value='delivery'>IQC Delivery</MenuItem>
                             <MenuItem value='accept'>Accept</MenuItem>
                             <MenuItem value='reject'>Reject</MenuItem>
                             <MenuItem value='qty'>Qty</MenuItem>
-                            <MenuItem value='purchpo'>Purch PO#</MenuItem>
-                            <MenuItem value='createdby'>Created By</MenuItem>
                             <MenuItem value='remarks'>Remarks</MenuItem>
                             
                         </Select>
@@ -585,21 +732,36 @@ const HistoryMold = ({ openHistoryModal, handleCloseHistoryModal, moldSelected, 
                     fixedHeaderContent={fixedHeaderContent}
                     itemContent={rowContent}
                   />
-                </Paper><br/>
-                  <br/> <br/> <br/>
+                </Paper>
+                  {/* UNCOMMENT THIS TO IMPLEMENT DELETE DELIVERIES */}
+                  {/* <br/> <br/> <br/> <br/>
                   <Button onClick={()=>{
                       const answer = window.confirm("Are sure you want to RESET / DELETE all Deliveries with this mold");
                       if (answer) {
                           //some code
+                          dispatch(deleteDeliveriesByMoldId(moldSelectedGet._id));
+                          setMoldSelectedValGet({...moldSelected,additionalLife:0});
+                          dispatch(editMoldWithId(moldSelectedGet?._id,{...moldSelectedGet,
+                            delivered:0,
+                            additionalLife:0,
+                            condition:{ label: 'Good', name: 'good',color: 'success'},
+                            remarks:"",
+                            lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
                       }
                       else {
                           //some code
                       }
-                  }} variant="contained" color="error">Delete All Deliveries</Button>
+                  }} variant="contained" color="error">Delete All Deliveries</Button> */}
                 </div>
             </Box>
             </Grid>
-            <Grid  md={4} lg={4}>
+            <Grid  md={4} lg={4} sx={{mt:-7}}>
+            <Typography sx={{fontSize:20}} variant="p" component="div">
+            Mold #: <span style={{backgroundColor:'#d63031',color:'#fff',borderRadius:5,paddingLeft:5,paddingRight:5}}>{moldSelectedGet?.moldNumber || 'NA'}</span> |
+              Supplier: <span style={{backgroundColor:'#0984e3',color:'#fff',borderRadius:5,paddingLeft:2,paddingRight:2}}>{itemSelectedGet?.supplier?.name || 'NA'}</span> <br/> 
+              ItemCode: <span style={{backgroundColor:'#0984e3',color:'#fff',borderRadius:5,paddingLeft:2,paddingRight:2}}>{itemSelectedGet?.itemCode || 'NA'}</span> |
+              Buyer: <span style={{backgroundColor:'#00b894',color:'#fff',borderRadius:5,paddingLeft:2,paddingRight:2}}>{itemSelectedGet?.buyer?.name || 'NA'}</span>
+            </Typography>
             <Box component="form" noValidate autoComplete="off"
                     sx={{
                         '& .MuiTextField-root': { m: 1, width: '50ch' },

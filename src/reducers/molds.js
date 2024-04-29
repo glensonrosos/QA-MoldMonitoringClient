@@ -1,10 +1,12 @@
-import { CREATE_MOLD,GET_MOLDS_BY_ITEM_ID,EDIT_MOLD_WITH_ID,START_LOADING_HOME,END_LOADING_HOME,EXPORT_REPORT,CLEAR_MOLD_STATE } from "../constant/actionTypes";
+import { CREATE_MOLD,FIND_MOLD,GET_MOLDS_BY_ITEM_ID,EDIT_MOLD_WITH_ID,START_LOADING_HOME,END_LOADING_HOME,EXPORT_REPORT,CLEAR_MOLD_STATE } from "../constant/actionTypes";
 
 const defaultState = {
     isLoading: false,
     molds:[],
     exportMolds:[],
     message: null,
+    moldSelected:null,
+    itemSelected:null,
 }
 
 
@@ -23,7 +25,7 @@ export default(state = defaultState,action) =>{
                     ...state,
                     message: 'duplicate',
                 }
-            else
+            else if(action.payload?.message == 'good')
                 return {
                     ...state,
                     message:'good',
@@ -31,6 +33,21 @@ export default(state = defaultState,action) =>{
                         ...state.molds, 
                         action.payload
                     ]
+                };
+        case FIND_MOLD:
+            if(action.payload?.message == 'not found')
+                return {
+                    ...state,
+                    moldSelected:null,
+                    itemSelected:null,
+                    message:'not found'
+                }
+            else if(action.payload?.message == 'found')
+                return {
+                    ...state,
+                    moldSelected: action.payload.moldSelected,
+                    itemSelected: action.payload.itemSelected,
+                    message:'found'
                 };
         case EDIT_MOLD_WITH_ID:
             return {

@@ -2,7 +2,7 @@ import React, { useEffect,useState } from 'react';
 import {Box,Paper,Typography,TextField,Autocomplete,Button,Backdrop,CircularProgress,Snackbar,Alert} from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 
-import {Save,SystemUpdateAlt,Search,Clear} from '@mui/icons-material';
+import {Save,SystemUpdateAlt,Search,Clear,Pageview} from '@mui/icons-material';
 
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -11,6 +11,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import {getBuyers} from '../../../../actions/buyers';
 import {getMaterials} from '../../../../actions/materials';
+import {getMoldMaterials} from '../../../../actions/moldMaterials';
 import {getSuppliers} from '../../../../actions/suppliers';
 import {createItem,editItem,getItemsBySearch,getItems} from '../../../../actions/items';
 
@@ -18,7 +19,8 @@ import { useSelector,useDispatch } from 'react-redux';
 
 import {useNavigate,useLocation} from 'react-router-dom';
 
-import ReportsMold from '../Modal/ReportsMold';
+import PoQuickview from '../Modal/PoQuickview';
+import  ReportsMold from '../Modal/ReportsMold';
 
 import { AUTH_LOGOUT } from '../../../../constant/actionTypes';
 import decode from 'jwt-decode';
@@ -32,9 +34,11 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
 
     const {buyers,isLoading:buyerLoading} = useSelector(state=> state.buyers);
     const {materials,isLoading:materialLoading} = useSelector(state=> state.materials);
+    const {moldMaterials,isLoading:moldMaterialLoading} = useSelector(state=> state.moldMaterials);
     const {suppliers,isLoading:supplierLoading} = useSelector(state=> state.suppliers);
 
     const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
+    const userDepartment = user?.result?.department?.department;
 
     const handleLogout = () =>{
       dispatch({type: AUTH_LOGOUT});
@@ -46,6 +50,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     useEffect(()=>{
         dispatch(getBuyers());
         dispatch(getMaterials());
+        dispatch(getMoldMaterials());
         dispatch(getSuppliers());
         //alert('useEffect => get all options for buyer,material,supplier');
     },[dispatch])
@@ -57,6 +62,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         supplier:null,
         buyer:null,
         material:null,
+        moldMaterial:null,
         prevSuplier:null
     });
 
@@ -68,15 +74,28 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         setOpenReportsModal(false);
     };
 
+    const [openPoQuickviewModal, setOpenPoQuickviewModal] = useState(false);
+    const handleOpenPoQuickviewModal = () => {
+            setOpenPoQuickviewModal(true);
+    };
+    const handleClosePoQuickviewModal = () => {
+        setOpenPoQuickviewModal(false);
+    };
+
     const [isEditButton,setIsEditButton] = useState(false);
-   
+    const [isAddItemCalled, setIsAddItemCalled] = useState(0);
 
     sharedStateRef.current = input;
     setSharedStateRef.current = setInput;
+
+    sharedStateRef.isAddItemCalled = isAddItemCalled;
+    setSharedStateRef.setIsAddItemCalled = setIsAddItemCalled;
+
     setSharedStateRef.button = setIsEditButton;
 
     const [inputBuyer,setInputBuyer] = useState([]);
     const [inputMaterial,setInputMaterial] = useState([]);
+    const [inputMoldMaterial,setInputMoldMaterial] = useState([]);
     const [inputSupplier,setInputSupplier] = useState([]);
 
     useEffect(()=>{
@@ -90,7 +109,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
           handleLogout();
         }
 
-        if(buyers.length > 0 && suppliers.length > 0 && materials.length > 0 ){
+        if(buyers.length > 0 && suppliers.length > 0 && materials.length > 0 && moldMaterials.length > 0 ){
             setInput({
                 _id:null,
                 itemCode:null,
@@ -98,20 +117,22 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 supplier:null,
                 buyer:null,
                 material:null,
+                moldMaterial:null,
                 prevSuplier:null,
             });
             setInputBuyer(buyers);
             setInputMaterial(materials);
+            setInputMoldMaterial(moldMaterials);
             setInputSupplier(suppliers);
 
            //alert(`useEffect => ${user?.result?.role}`);
         }
 
-    },[buyers,materials,suppliers,user]);
+    },[buyers,materials,moldMaterials,suppliers,user]);
 
     const handleOnChangeInput = (name,e,val=null) =>{
         
-        if(name === "buyer" || name === "material" || name === "supplier"){
+        if(name === "buyer" || name === "material" || name === "moldMaterial" || name === "supplier"){
             setInput({
                 ...input,
                 [name]: val 
@@ -128,11 +149,14 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
 
     const searchItem =  () =>{
 
+        setIsAddItemCalled(prev => prev + 1);
+        
         if((input?.itemCode == null || input?.itemCode == '') && 
             (input?.itemDescription == null || input?.itemDescription == '') && 
             (input?.buyer?._id == null || input?.buyer?._id == '') && 
             (input?.supplier?._id == null ||  input?.supplier?._id == '') &&
-            (input?.material?._id == null ||  input?.material?._id == '')){
+            (input?.material?._id == null ||  input?.material?._id == '') &&
+            (input?.moldMaterial?._id == null ||  input?.moldMaterial?._id == '')){
                 dispatch(getItems(1));
                 navigate(`/mold-details?page=1`);
         
@@ -144,9 +168,10 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 buyer: input?.buyer?._id || '',
                 supplier: input?.supplier?._id || '',
                 material: input?.material?._id || '',
+                moldMaterial: input?.moldMaterial?._id || '',
                 page:1}));
         
-            navigate(`/mold-details/search?itemcode=${input?.itemCode || ''}&itemdesc=${input?.itemDescription || ''}&supplier=${input?.supplier?._id  || ''}&buyer=${input?.buyer?._id  || ''}&material=${input?.material?._id || ''}&page=1`);
+            navigate(`/mold-details/search?itemcode=${input?.itemCode || ''}&itemdesc=${input?.itemDescription || ''}&supplier=${input?.supplier?._id  || ''}&buyer=${input?.buyer?._id  || ''}&material=${input?.material?._id || ''}&moldMaterial=${input?.moldMaterial?._id || ''}&page=1`);
         }
         
     }
@@ -155,6 +180,13 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     const AddItem = async () =>{
 
         let flag = true;
+        setIsAddItemCalled(prev => prev + 1);
+
+
+        if(userDepartment !== "Purchasing" && userDepartment !== "Administrator"){
+            setSnackbar({ children: `You are not allowed to make this action`, severity: 'warning' });
+            flag = false;
+        }
 
         const itemNumberReg = /^(?:[a-zA-Z0-9]+-?){3,15}$/;
         if(!itemNumberReg.test(input.itemCode)) {
@@ -162,7 +194,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             flag = false;
         }
 
-        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{3,40}$/;
+        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{3,100}$/;
         if(!itemDescReg.test(input.itemDescription)){
             setSnackbar({ children: `Item Description inputed is invalid, `, severity: 'error' });
             flag = false;
@@ -183,6 +215,12 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         const findMaterial = inputMaterial.find(buy => buy?._id === input.material?._id);
         if(findMaterial === undefined || findMaterial === null){
             setSnackbar({ children: `Material inputed is invalid`, severity: 'error' });
+            flag = false;
+        }
+
+        const findMoldMaterial = inputMoldMaterial.find(buy => buy?._id === input.moldMaterial?._id);
+        if(findMoldMaterial === undefined || findMoldMaterial === null){
+            setSnackbar({ children: `Mold Material inputed is invalid`, severity: 'error' });
             flag = false;
         }
 
@@ -196,6 +234,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 supplier:null,
                 buyer:null,
                 material:null,
+                moldMaterial:null,
                 prevSuplier:null
             });
 
@@ -207,8 +246,14 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
 
     const EditItem = async () =>{
         let flag = true;
+        setIsAddItemCalled(prev => prev + 1);
 
-        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{3,40}$/;
+        if(userDepartment !== "Purchasing" && userDepartment !== "Administrator"){
+            setSnackbar({ children: `You are not allowed to make this action`, severity: 'warning' });
+            flag = false;
+        }
+
+        const itemDescReg = /^[a-zA-Z0-9!@#$%^&*()_+-=,.<>?;:'"\[\]{}|\\/\s]{3,100}$/;
         if(!itemDescReg.test(input.itemDescription)){
             setSnackbar({ children: `Item Description inputed is invalid, `, severity: 'error' });
             flag = false;
@@ -232,6 +277,12 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             flag = false;
         }
 
+        const findMoldMaterial = inputMoldMaterial.find(buy => buy?._id === input.moldMaterial?._id);
+        if(findMoldMaterial === undefined || findMoldMaterial === null){
+            setSnackbar({ children: `Mold Material inputed is invalid`, severity: 'error' });
+            flag = false;
+        }
+
         if(flag){
 
             await dispatch(editItem(input._id,{...input,lastEditdBy:`${user?.result?.firstname} ${user?.result?.lastname}`}));
@@ -242,6 +293,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                 supplier:null,
                 buyer:null,
                 material:null,
+                moldMaterial:null,
                 prevSuplier:null
             });
             setIsEditButton(false);
@@ -257,6 +309,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             supplier:null,
             buyer:null,
             material:null,
+            moldMaterial:null,
             prevSuplier:null
         });
 
@@ -279,17 +332,23 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         </AccordionSummary>
         <AccordionDetails>
 
-            <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={buyerLoading || materialLoading || supplierLoading}>
+            <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={buyerLoading || materialLoading || supplierLoading || moldMaterialLoading}>
                 <CircularProgress color="inherit" />
             </Backdrop>
+
+            <PoQuickview openPoQuickviewModal={openPoQuickviewModal} handleClosePoQuickviewModal={handleClosePoQuickviewModal}/>
             <ReportsMold openReportsModal={openReportsModal} handleCloseReportsModal={handleCloseReportsModal}/>
+
             <Paper elevation={6} sx={{padding:2}}>
                     <Grid container spacing={2} direction="row" justifyContent="space-between">
-                        <Grid xs={8} md={8} lg={8}>
+                        <Grid xs={6} md={6} lg={6}>
                             <Typography variant="h6"> Search / Add Item </Typography><br/>
                         </Grid>
                         <Grid xs={3} md={3} lg={3}>
-                            <Button size='small' variant="contained" color="success" startIcon={<SystemUpdateAlt/>}  onClick={handleOpenReportsModal}  >Gen. Report </Button>
+                            <Button size='small' variant="contained" color="secondary" startIcon={<Pageview/>}  onClick={handleOpenPoQuickviewModal}  >PO Quickview </Button>
+                        </Grid>
+                        <Grid xs={3} md={3} lg={3}>
+                            <Button size='small' variant="contained" color="success" startIcon={<SystemUpdateAlt/>}  onClick={handleOpenReportsModal}  >Mold Report </Button>
                         </Grid>
                     </Grid>
                     <Grid container spacing={2} direction="row" justifyContent="center">
@@ -346,6 +405,19 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                                 value={input?.material}
                                 isOptionEqualToValue={(option, value) => option.value === value.value}
                                 renderInput={(params) => <TextField {...params} label="Material" />}
+                            />
+                            <Autocomplete
+                                size='small'
+                                disablePortal
+                                id="moldMaterialsId"
+                                options={inputMoldMaterial}
+                                clearOnEscape 
+                                onChange={(e,v)=>handleOnChangeInput("moldMaterial",e,v)}
+                                getOptionLabel={(option) => option.name}
+                                sx={{ width: 250 }}
+                                value={input?.moldMaterial}
+                                isOptionEqualToValue={(option, value) => option.value === value.value}
+                                renderInput={(params) => <TextField {...params} label="Mold Material" />}
                             />
                             </Box>
                            

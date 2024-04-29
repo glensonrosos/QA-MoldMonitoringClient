@@ -1,7 +1,7 @@
 import React,{useState,useEffect} from 'react';
 
 
-import { Box,Button,Snackbar,Alert,Autocomplete,TextField} from '@mui/material';
+import { Box,Button,Snackbar,Alert,Autocomplete,TextField,Checkbox,FormControlLabel} from '@mui/material';
 
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -21,13 +21,14 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
     const { isLoading, message} = useSelector(state => state.molds);
 
     const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
-    //`${user?.result?.firstname} ${user?.result?.lastname}`
+    const userDepartment = user?.result?.department?.department;
 
     const [input,setInput] = useState({
         _id:null,
         moldNumber:null,
         validationDate:null,
         life:null,
+        owned:false,
         additionalLife:0,
         condition:{ label: 'Good', name: 'good',color: 'success'},
         remarks:null 
@@ -47,6 +48,7 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
             moldNumber:null,
             validationDate:null,
             life:null,
+            owned:false,
             additionalLife:0,
             condition:null,
             remarks:null 
@@ -75,6 +77,11 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
                 ...input,
                 [name]: val 
             });
+        }else if(name === "owned"){
+            setInput({
+                ...input,
+                [name]: e.target.checked
+            });
         }
         else
             setInput({
@@ -87,6 +94,11 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
     const AddMoldButton = async () =>{
 
         let flag = true;
+
+        if(userDepartment !== "Purchasing" && userDepartment !== "Administrator"){
+            setSnackbar({ children: `You are not allowed to make this action`, severity: 'warning' });
+            flag = false;
+        }
 
         const moldNumber = /^(?:[a-zA-Z0-9]+-?){1,15}$/;
         if(!moldNumber.test(input.moldNumber) || input.moldNumber == null) {
@@ -158,7 +170,16 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
                     isOptionEqualToValue={(option, value) => option.value === value.value}
                     renderInput={(params) => <TextField {...params} label="Condition" />}
                 /> 
-               
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                        checked={input?.owned}
+                        onChange={(e) => handleOnChangeInput("owned",e)}
+                        size='small' />
+                    }
+                    label="is Owned by PEBA"
+                    sx={{ml:0}}
+                />
                <TextField
                     id="outlined-multiline-static"
                     label="Remarks"

@@ -20,7 +20,7 @@ const MoldDetails = () =>{
           <Grid xs={6} md={6} lg={6} mt={2}>
             <AddItem sharedStateRef={sharedStateRef} setSharedStateRef={setSharedStateRef}/>
              <Box mt={2}></Box>
-            <ItemTable setSharedStateRef={setSharedStateRef} />
+            <ItemTable setSharedStateRef={setSharedStateRef} sharedStateRef={sharedStateRef} />
           </Grid>
           <Grid xs={6} md={6} lg={6} mt={2}>
             <MoldTable sharedStateRef={sharedStateRef} setSharedStateRef={setSharedStateRef}/>

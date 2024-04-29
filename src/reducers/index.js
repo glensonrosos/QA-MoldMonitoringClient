@@ -4,6 +4,7 @@ import deliveries from './deliveries';
 import items from './items';
 import buyers from "./buyers";
 import materials from "./materials";
+import moldMaterials from "./moldMaterials";
 import suppliers from "./suppliers";
 import auth from './auth';
 
@@ -13,6 +14,7 @@ export default combineReducers({
     deliveries,
     buyers,
     materials,
+    moldMaterials,
     suppliers,
     auth,
 });

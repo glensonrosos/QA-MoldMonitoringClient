@@ -1,7 +1,7 @@
 import React,{useState,useEffect} from 'react';
 
 
-import { Box,Button,Snackbar,Alert,Autocomplete,TextField,Backdrop,CircularProgress} from '@mui/material';
+import { Box,Button,Snackbar,Alert,Autocomplete,TextField,Backdrop,CircularProgress,Typography} from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -22,14 +22,18 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
     const dispatch = useDispatch();
 
     const {suppliers} = useSelector(state=> state.suppliers);
+    const {buyers} = useSelector(state=> state.buyers);
     const {isLoading,exportMolds,message} = useSelector(state => state.molds);
 
     const [inputSupplier,setInputSupplier] = useState([]);
+    const [inputBuyer,setInputBuyer] = useState([]);
     
     const [input,setInput] = useState({
         itemCode:null,
         supplier:null,
-        condition: { label: 'Near Validation', name: 'near_validation',color: 'warning'},
+        buyer:null,
+        condition:[],
+
     });
 
     const [generateReportLoading,setGenerateReportLoading] = useState(false);
@@ -42,9 +46,11 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
                     "Item Code": ex.itemCode,
                     "Buyer": ex.buyerName,
                     "Material":ex.materialName,
+                    "Mold Material":ex.moldMaterialName,
                     "Supplier": ex.supplierName,
                     "Mold #": ex.moldNumber,
-                    "life Remaining": ex.life,
+                    "Life Remaining": ex.life,
+                    "PEBA Owned": ex.owned ? "Yes" : "No",
                     "Condition": ex.conditionName,
                     "Total Delivered": ex.delivered,
                     "Last Edited By" : ex.lastEditdBy,
@@ -55,7 +61,7 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
 
 
 
-            exportToExcel(dataExport, 'itgwapos');
+            exportToExcel(dataExport, `Mold-Report-${moment().format('L')}`);
            // loading done and clear exportMolds state
 
            inputClear();
@@ -65,7 +71,7 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
            dispatch(clearMoldState());
         }
         else if(!isLoading && exportMolds.length === 0 && message === "no itemcode found")
-            setSnackbar({ children: `Item Code matches the search, or you can leave it blank`, severity: 'error' });
+            setSnackbar({ children: `No Molds matches the search, If you dont know the exact ItemCode you can leave it blank`, severity: 'error' });
         else if(!isLoading && exportMolds.length === 0 && message === "export")
             setSnackbar({ children: `No Data found, `, severity: 'error' });
         setGenerateReportLoading(false);
@@ -75,14 +81,16 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
 
     useEffect(()=>{
         setInputSupplier(suppliers);
-    },[suppliers]);
+        setInputBuyer(buyers);
+    },[suppliers,buyers]);
 
 
     const inputClear = () =>{
         setInput({
             itemCode:null,
             supplier:null,
-            condition: null,
+            buyer:null,
+            condition: [],
         });
     }
 
@@ -97,7 +105,7 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
     const handleCloseSnackbar = () => setSnackbar(null);
 
     const handleOnChangeInput = (name,e,val=null) =>{
-        if(name === "condition" || name === "supplier"){
+        if(name === "condition" || name === "supplier" || name === "buyer"){
             setInput({
                 ...input,
                 [name]: val 
@@ -120,24 +128,34 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
             flag = false;
         }
 
-        const findSupplier= inputSupplier.find(con => con?.name === input.supplier?.name);
+        const findSupplier = inputSupplier.find(con => con?.name === input.supplier?.name);
+        const findBuyer = inputBuyer.find(buy => buy?.name === input.buyer?.name);
+
         if(findSupplier === undefined || findSupplier === null){
-           
-            setSnackbar({ children: `Supplier is required`, severity: 'error' });
-            flag = false;
+            if(findBuyer === undefined || findBuyer === null){
+                setSnackbar({ children: `Supplier or Buyer is required`, severity: 'error' });
+                flag = false;
+            }
+        }
+       
+        if(findBuyer === undefined || findBuyer === null){
+            if(findSupplier === undefined || findSupplier === null){
+                setSnackbar({ children: `Buyer or Supplier is required`, severity: 'error' });
+                flag = false;
+            }
         }
 
-        const findCondition = conditions.find(con => con?.name === input.condition?.name);
-        if(findCondition === undefined || findCondition === null){
+        if(input?.condition?.length === 0){
            
             setSnackbar({ children: `Condition is required`, severity: 'error' });
             flag = false;
         }
         if(flag){
 
+           // alert(JSON.stringify(input));
             setGenerateReportLoading(true);
 
-            await dispatch(exportReport({itemCode:input?.itemCode?.toUpperCase(), supplierId:input?.supplier?._id, conditionName: input?.condition?.name }));
+            await dispatch(exportReport({itemCode:input?.itemCode?.toUpperCase(), supplierId:input?.supplier?._id,buyerId:input?.buyer?._id, condition: input?.condition }));
             // start loading
         }
     }
@@ -150,15 +168,15 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
             <CircularProgress color="inherit" />
         </Backdrop>
       <Dialog open={openReportsModal} onClose={handleCloseReportsModal}>
-        <DialogTitle>Reports Mold </DialogTitle>
+        <DialogTitle>Mold Report </DialogTitle>
         <DialogContent>
             <Box component="form" noValidate autoComplete="off"
                     sx={{
                         '& .MuiTextField-root': { m: 1, width: '50ch' },
                     }}>
-                <TextField label="Item Code" onChange={(e)=>handleOnChangeInput("itemCode",e)} value={input.itemCode || ''} variant="outlined" size='small' fullWidth/>
+                <TextField label="Item Code" onChange={(e)=>handleOnChangeInput("itemCode",e)} value={input.itemCode || ''} variant="outlined" size='small' fullWidth
+                 onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}}/>
                 <Autocomplete
-                    //disabled={isEditButton}
                     size='small'
                     disablePortal
                     id="supplierId"
@@ -169,22 +187,40 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
                     sx={{ width: 250 }}
                     value={input?.supplier}
                     isOptionEqualToValue={(option, value) => option.value === value.value}
-                    renderInput={(params) => <TextField {...params} label="Supplier" />}
+                    renderInput={(params) => <TextField {...params} label="Supplier" onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}} />}
+                />
+
+                <Autocomplete
+                    size='small'
+                    disablePortal
+                    id="buyerId"
+                    options={inputBuyer}
+                    clearOnEscape
+                    onChange={(e,v)=>handleOnChangeInput("buyer",e,v)}
+                    getOptionLabel={(option) => option.name}
+                    sx={{ width: 250 }}
+                    value={input?.buyer}
+                    isOptionEqualToValue={(option, value) => option.value === value.value}
+                    renderInput={(params) => <TextField {...params} label="Buyer" onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}} />}
                 />
                
                 <Autocomplete
-                    disablePortal
+                    multiple
+                    id="tags-standard"
                     size='small'
-                    id="buyerssId"
                     options={conditions}
-                    clearOnEscape 
+                    getOptionLabel={(option) => option.label} 
                     onChange={(e,v)=>handleOnChangeInput("condition",e,v)}
-                    getOptionLabel={(option) => option.label}
+                    
+                    renderInput={(params) => <TextField {...params} label="Condition" variant="standard"/>}
                     sx={{ width: 250 }}
-                    value={input?.condition}
-                    isOptionEqualToValue={(option, value) => option.value === value.value}
-                    renderInput={(params) => <TextField {...params} label="Condition" />}
                 /> 
+                
+                </Box>
+                <Box sx={{mt:2}}>
+                    <Typography variant="p" color="error" >
+                        Note: ItemCode is optional | Condition is required,<br/>Supplier or Buyer are required
+                    </Typography>
                 </Box>
                 {/* </Grid>
             </Grid> */}

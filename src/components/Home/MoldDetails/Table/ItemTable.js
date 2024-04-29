@@ -20,16 +20,13 @@ function useQuery(){
     return new URLSearchParams(useLocation().search);
   }
 
-const ItemTable = ({setSharedStateRef }) => {
+const ItemTable = ({setSharedStateRef,sharedStateRef }) => {
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
     const { isLoading, items, message, numberOfPages } = useSelector(state => state.items);
 
- 
-
-    
     const query = useQuery();
     const queryPage = query.get('page') || 1;
     const searchItemCode = query.get('itemcode');
@@ -37,6 +34,7 @@ const ItemTable = ({setSharedStateRef }) => {
     const searchSupplier = query.get('supplier');
     const searchBuyer = query.get('buyer');
     const searchMaterial = query.get('material');
+    const searchMoldMaterial = query.get('moldmaterial');
 
     
     const [snackbar, setSnackbar] = React.useState(null);
@@ -55,10 +53,11 @@ const ItemTable = ({setSharedStateRef }) => {
         { id: 'supplier', label: 'Supplier', minWidth: 30 },
         { id: 'buyer', label: 'Buyer', minWidth: 30 },
         { id: 'material', label: 'Material', minWidth: 30 },
+        { id: 'moldMaterial', label: 'Mold Mat.', minWidth: 30 },
     ];
 
-    function createData(select, itemcode, itemdescription, supplier, buyer, material) {
-        return { select, itemcode, itemdescription, supplier, buyer, material };
+    function createData(select, itemcode, itemdescription, supplier, buyer, material,moldMaterial) {
+        return { select, itemcode, itemdescription, supplier, buyer, material,moldMaterial };
     }
 
     const [rows, setRows] = useState([]);
@@ -86,8 +85,10 @@ const ItemTable = ({setSharedStateRef }) => {
     };
 
     useEffect(() => {
+        
         if (!isLoading) {
             setRows([]);
+            
             items?.map(item => {
                 rowsData.push(
                     createData(
@@ -98,12 +99,18 @@ const ItemTable = ({setSharedStateRef }) => {
                             style={{ padding: 0 }} />,
                         <Typography sx={{ color: "#d63031", cursor: "pointer" }} variant='body1'
                             onClick={() => { setSharedStateRef.current({ ...item,prevSupplier:item.supplier }); setSharedStateRef.button(true) }}>{item.itemCode}</Typography>
-                        , item.itemDescription, item.supplier.name, item.buyer.name, item.material.name));
+                        , item.itemDescription, item.supplier.name, item.buyer.name, item.material.name,item.moldMaterial.name));
                 return null;
             });
             setRows([...rowsData]);
+           
         }
     }, [isLoading, items, selectedIndex]);
+
+    useEffect(() =>{
+        setSelectedIndex(-1);
+    },[sharedStateRef.isAddItemCalled])
+
 
     useEffect(() =>{
         if(!isLoading && message === 'duplicate'){
@@ -128,11 +135,14 @@ const ItemTable = ({setSharedStateRef }) => {
 
 
     const handleChangePage = (newPage) =>{
+        setSelectedIndex(-1);
+       
         if((searchItemCode == null || searchItemCode == '') && 
             (searchItemDesc == null || searchItemDesc == '') && 
             (searchBuyer == null || searchBuyer == '') && 
             (searchSupplier == null ||  searchSupplier == '') &&
-            (searchMaterial == null ||  searchMaterial == '')){
+            (searchMaterial == null ||  searchMaterial == '') &&
+            (searchMoldMaterial == null ||  searchMoldMaterial == '')){
         
           dispatch(getItems(newPage));      
           navigate(`/mold-details?page=${newPage}`);
@@ -143,10 +153,10 @@ const ItemTable = ({setSharedStateRef }) => {
                 buyer: searchBuyer || '',
                 supplier: searchSupplier || '',
                 material:searchMaterial || '',
+                moldMaterial:searchMoldMaterial || '',
                 page: newPage}));
-            navigate(`/mold-details/search?itemcode=${searchItemCode || ''}&itemdesc=${searchItemDesc || ''}&supplier=${searchSupplier || ''}&buyer=${searchBuyer || ''}&material=${searchMaterial || ''}&page=${newPage}`);
-        }
-        
+            navigate(`/mold-details/search?itemcode=${searchItemCode || ''}&itemdesc=${searchItemDesc || ''}&supplier=${searchSupplier || ''}&buyer=${searchBuyer || ''}&material=${searchMaterial || ''}&moldMaterial=${searchMoldMaterial || ''}&page=${newPage}`);
+        } 
       }
 
     return (

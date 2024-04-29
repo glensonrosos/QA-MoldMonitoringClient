@@ -226,18 +226,19 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
            <EditDeleteMold openEditDeleteModal={openEditDeleteModal} moldSelected={moldSelected} itemSelected={itemSelected} handleCloseEditDeleteModal={handleCloseEditDeleteModal}/>
            <HistoryMold openHistoryModal={openHistoryModal} handleCloseHistoryModal={handleCloseHistoryModal} moldSelected={moldSelected} itemSelected={itemSelected}/>
          <Typography variant="h5"> Mold Details </Typography>
-            <Grid container spacing={5} direction="row" justifyContent="center">
-                <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">ItemCode: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.itemCode || ''}</span> </Typography><br/><br/>
-                    <Typography variant="p">Desc: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.itemDescription || ''}</span></Typography><br/> <br/>
+            <Grid container spacing={2} direction="row" justifyContent="center">
+                <Grid xs={4} md={4} lg={4} mt={2} spacing={15}>
+                    <Typography variant="p">ItemCode: <span style={{fontWeight:'bold',color:'#c0392b',textDecoration:"underline"}}>{itemSelected?.itemCode || ''}</span> </Typography><br/><br/>
+                    <Typography variant="p">Desc: <span style={{fontWeight:'bold',color:'#c0392b',textDecoration:"underline"}}>{itemSelected?.itemDescription || ''}</span></Typography><br/> <br/>
                     <Button variant="contained" color="primary" size="small"  startIcon={<Save/>} onClick={handleOpenAddModal}  > Add Mold </Button>
                 </Grid>
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">Buyer: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.buyer?.name || ''}</span> </Typography><br/><br/>
-                    <Typography variant="p">Supplier: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.supplier?.name || ''} </span></Typography>
+                    <Typography variant="p">Buyer: <span style={{fontWeight:'bold',color:'#c0392b',textDecoration:"underline"}}>{itemSelected?.buyer?.name || ''}</span> </Typography><br/><br/>
+                    <Typography variant="p">Supplier: <span style={{fontWeight:'bold',color:'#c0392b',textDecoration:"underline"}}>{itemSelected?.supplier?.name || ''} </span></Typography><br/><br/>
+                    <Typography variant="p">Mold Mat: <span style={{fontWeight:'bold',color:'#c0392b',textDecoration:"underline"}}>{itemSelected?.moldMaterial?.name || ''} </span></Typography>
                 </Grid>
                 <Grid xs={4} md={4} lg={4} mt={2}>
-                    <Typography variant="p">Material: <span style={{fontWeight:'bold',backgroundColor:'#feca57',padding:5}}>{itemSelected?.material?.name || ''}</span></Typography><br/><br/>
+                    <Typography variant="p">Material: <span style={{fontWeight:'bold',color:'#c0392b',textDecoration:"underline"}}>{itemSelected?.material?.name || ''}</span></Typography><br/><br/>
                     <FormControl fullWidth>
                     <InputLabel id="demo-simple-select-label" >Column</InputLabel>
                         <Select

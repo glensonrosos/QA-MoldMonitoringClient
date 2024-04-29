@@ -1,9 +1,10 @@
-import { GET_DELIVERIES_BY_MOLD_ID,ADD_DELIVERY,START_LOADING_HOME,END_LOADING_HOME } from "../constant/actionTypes";
+import { GET_DELIVERIES_BY_MOLD_ID,ADD_DELIVERY,FIND_PO,EDIT_DELIVERY,START_LOADING_HOME,END_LOADING_HOME,DELETE_DELIVERIES_BY_MOLD_ID } from "../constant/actionTypes";
 
 const defaultState = {
     isLoading: false,
     deliveries:[],
     message: null,
+    poList:[]
 }
 
 
@@ -30,6 +31,40 @@ export default(state = defaultState,action) =>{
                         action.payload
                     ]
                 };
+        case EDIT_DELIVERY:
+            if(action.payload?.message == 'exceed')
+                return {
+                    ...state,
+                    message: 'exceed',
+                }
+            else
+                return {
+                    ...state,
+                    message:'edited',
+                    deliveries : state.deliveries.map((i)=> i._id === action.payload._id ? action.payload : i)
+                };
+        case DELETE_DELIVERIES_BY_MOLD_ID:
+            if(action.payload?.message == 'deleted')
+                return {
+                    ...state,
+                    deliveries:[],
+                }
+            else
+                return state
+        case FIND_PO:
+            if(action.payload?.message == 'not found'){
+                return {
+                    ...state,
+                    message:"not found",
+                    poList:[],
+                }
+            }else if(action.payload?.message == 'po found'){
+                return {
+                    ...state,
+                    message:"po found",
+                    poList:action.payload.poList,
+                }
+            }
         case START_LOADING_HOME:
             return{
                 ...state,
