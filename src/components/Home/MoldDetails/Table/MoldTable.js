@@ -120,7 +120,7 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
                 case 'condition':
                     return row.condition.props.label.toLowerCase().includes(searchText);
                 case 'remarks':
-                    return row.remarks.toLowerCase().includes(searchText);
+                    return row?.remarks?.toLowerCase()?.includes(searchText);
                 default:
                     return true;
             }

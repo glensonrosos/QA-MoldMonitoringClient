@@ -1,5 +1,5 @@
 import React, { useEffect,useState } from 'react';
-import {Box,Paper,Typography,TextField,Autocomplete,Button,Backdrop,CircularProgress,Snackbar,Alert} from '@mui/material';
+import {Box,Paper,Typography,TextField,Autocomplete,Button,Badge,Backdrop,Tooltip,CircularProgress,Snackbar,Alert} from '@mui/material';
 import Grid from '@mui/material/Unstable_Grid2';
 
 import {Save,SystemUpdateAlt,Search,Clear,Pageview} from '@mui/icons-material';
@@ -13,6 +13,7 @@ import {getBuyers} from '../../../../actions/buyers';
 import {getMaterials} from '../../../../actions/materials';
 import {getMoldMaterials} from '../../../../actions/moldMaterials';
 import {getSuppliers} from '../../../../actions/suppliers';
+import {countNearValidation} from '../../../../actions/molds';
 import {createItem,editItem,getItemsBySearch,getItems} from '../../../../actions/items';
 
 import { useSelector,useDispatch } from 'react-redux';
@@ -36,6 +37,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     const {materials,isLoading:materialLoading} = useSelector(state=> state.materials);
     const {moldMaterials,isLoading:moldMaterialLoading} = useSelector(state=> state.moldMaterials);
     const {suppliers,isLoading:supplierLoading} = useSelector(state=> state.suppliers);
+    const {isLoading:moldLoading,nearValidationMolds} = useSelector(state=> state.molds);
 
     const [user,setUser] = useState(JSON.parse(localStorage.getItem('profile')));
     const userDepartment = user?.result?.department?.department;
@@ -52,6 +54,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         dispatch(getMaterials());
         dispatch(getMoldMaterials());
         dispatch(getSuppliers());
+        dispatch(countNearValidation());
         //alert('useEffect => get all options for buyer,material,supplier');
     },[dispatch])
 
@@ -97,6 +100,8 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
     const [inputMaterial,setInputMaterial] = useState([]);
     const [inputMoldMaterial,setInputMoldMaterial] = useState([]);
     const [inputSupplier,setInputSupplier] = useState([]);
+    const [inputNearValidation,setInputNearValidation] = useState([]);
+    const [nearValidationTooltip,setNearValidationTooltip] = useState('');
 
     useEffect(()=>{
 
@@ -109,7 +114,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
           handleLogout();
         }
 
-        if(buyers.length > 0 && suppliers.length > 0 && materials.length > 0 && moldMaterials.length > 0 ){
+        if(buyers.length > 0 && suppliers.length > 0 && materials.length > 0 && moldMaterials.length > 0 && !moldLoading ){
             setInput({
                 _id:null,
                 itemCode:null,
@@ -124,11 +129,14 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
             setInputMaterial(materials);
             setInputMoldMaterial(moldMaterials);
             setInputSupplier(suppliers);
+            setInputNearValidation(nearValidationMolds);
 
            //alert(`useEffect => ${user?.result?.role}`);
+            const namesString = nearValidationMolds.map(obj => obj?.itemId?.name).join(', ');
+            setNearValidationTooltip(namesString);
         }
 
-    },[buyers,materials,moldMaterials,suppliers,user]);
+    },[buyers,materials,moldMaterials,suppliers,user,nearValidationMolds]);
 
     const handleOnChangeInput = (name,e,val=null) =>{
         
@@ -173,9 +181,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         
             navigate(`/mold-details/search?itemcode=${input?.itemCode || ''}&itemdesc=${input?.itemDescription || ''}&supplier=${input?.supplier?._id  || ''}&buyer=${input?.buyer?._id  || ''}&material=${input?.material?._id || ''}&moldMaterial=${input?.moldMaterial?._id || ''}&page=1`);
         }
-        
     }
-
 
     const AddItem = async () =>{
 
@@ -332,7 +338,7 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
         </AccordionSummary>
         <AccordionDetails>
 
-            <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={buyerLoading || materialLoading || supplierLoading || moldMaterialLoading}>
+            <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={buyerLoading || materialLoading || supplierLoading || moldMaterialLoading || moldLoading}>
                 <CircularProgress color="inherit" />
             </Backdrop>
 
@@ -348,7 +354,13 @@ const AddItem = ({sharedStateRef,setSharedStateRef}) =>{
                             <Button size='small' variant="contained" color="secondary" startIcon={<Pageview/>}  onClick={handleOpenPoQuickviewModal}  >PO Quickview </Button>
                         </Grid>
                         <Grid xs={3} md={3} lg={3}>
-                            <Button size='small' variant="contained" color="success" startIcon={<SystemUpdateAlt/>}  onClick={handleOpenReportsModal}  >Mold Report </Button>
+
+                            <Badge badgeContent={inputNearValidation?.length} color="error">
+                                <Tooltip title={nearValidationTooltip} placement="right-start">
+                                    <Button size='small' variant="contained" color="success" startIcon={<SystemUpdateAlt/>}  onClick={handleOpenReportsModal}  >Mold Report </Button>
+                                </Tooltip>
+                            </Badge>
+
                         </Grid>
                     </Grid>
                     <Grid container spacing={2} direction="row" justifyContent="center">

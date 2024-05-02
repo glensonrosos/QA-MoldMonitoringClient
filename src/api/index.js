@@ -10,6 +10,7 @@ export const editItem = (id,editedItem) => API.patch(`/items/${id}/editItem`,edi
 
 //MOLD
 export const getMolds = () => API.get(`/molds`);
+export const countNearValidation = () => API.get(`/molds/countNearValidation`);
 export const getMoldsByItemId = (id) => API.get(`/molds/${id}/getMoldsByItemId`);
 export const createMold = (id,newMold) => API.post(`/molds/${id}/createMold`,newMold);
 export const findMold = (search) => API.post(`/molds/findMold`,search);

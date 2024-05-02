@@ -23,7 +23,7 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
 
     const {suppliers} = useSelector(state=> state.suppliers);
     const {buyers} = useSelector(state=> state.buyers);
-    const {isLoading,exportMolds,message} = useSelector(state => state.molds);
+    const {isLoading,exportMolds,message,nearValidationMolds} = useSelector(state => state.molds);
 
     const [inputSupplier,setInputSupplier] = useState([]);
     const [inputBuyer,setInputBuyer] = useState([]);
@@ -33,8 +33,8 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
         supplier:null,
         buyer:null,
         condition:[],
-
     });
+    const [inputNearValidation,setInputNearValidation] = useState([]);
 
     const [generateReportLoading,setGenerateReportLoading] = useState(false);
 
@@ -76,7 +76,11 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
             setSnackbar({ children: `No Data found, `, severity: 'error' });
         setGenerateReportLoading(false);
 
-    },[isLoading,exportMolds,message])
+        if(!isLoading){
+            setInputNearValidation(nearValidationMolds);
+        }
+
+    },[isLoading,exportMolds,message,nearValidationMolds])
 
 
     useEffect(()=>{

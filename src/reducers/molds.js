@@ -1,4 +1,4 @@
-import { CREATE_MOLD,FIND_MOLD,GET_MOLDS_BY_ITEM_ID,EDIT_MOLD_WITH_ID,START_LOADING_HOME,END_LOADING_HOME,EXPORT_REPORT,CLEAR_MOLD_STATE } from "../constant/actionTypes";
+import { CREATE_MOLD,FIND_MOLD,COUNT_NEAR_VALIDATION,GET_MOLDS_BY_ITEM_ID,EDIT_MOLD_WITH_ID,START_LOADING_HOME,END_LOADING_HOME,EXPORT_REPORT,CLEAR_MOLD_STATE } from "../constant/actionTypes";
 
 const defaultState = {
     isLoading: false,
@@ -7,6 +7,7 @@ const defaultState = {
     message: null,
     moldSelected:null,
     itemSelected:null,
+    nearValidationMolds:[],
 }
 
 
@@ -49,6 +50,12 @@ export default(state = defaultState,action) =>{
                     itemSelected: action.payload.itemSelected,
                     message:'found'
                 };
+            case COUNT_NEAR_VALIDATION:
+               if(action.payload?.nearValidationMolds.length > 0)
+                    return {
+                        ...state,
+                        nearValidationMolds: action.payload.nearValidationMolds,
+                    };
         case EDIT_MOLD_WITH_ID:
             return {
                 ...state,
