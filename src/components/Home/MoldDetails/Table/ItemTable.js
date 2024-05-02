@@ -72,6 +72,7 @@ const ItemTable = ({setSharedStateRef,sharedStateRef }) => {
        
     };
 
+   
     const handleColumnClick = (item) => {
         const index = itemIndex(item);
         setSelectedIndex(index === selectedIndex ? -1 : index);

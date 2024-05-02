@@ -76,7 +76,7 @@ const MoldTable = ({sharedStateRef,setSharedStateRef}) =>{
                     </Grid>               
                 </Grid>
                 ,item?.moldNumber,moment(item?.validationDate).format('L'),
-                `${(parseInt(item?.life) + parseInt(item?.additionalLife)) - parseInt(item?.delivered)}`,
+                `${(parseInt(item?.life || 0) + parseInt(item?.additionalLife || 0)) - parseInt(item?.delivered || 0)}`,
                 <Chip label={item?.condition?.label} 
                     color={item?.condition?.color} 
                 size='medium' variant="contained" />

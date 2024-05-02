@@ -4,6 +4,8 @@ import {AppBar,Box,Toolbar,Typography,IconButton,Alert,Snackbar
 } from '@mui/material/';
 import AccountCircle from '@mui/icons-material/AccountCircle'
 
+import { useIdleTimer } from 'react-idle-timer'
+
 import Grid from '@mui/material/Unstable_Grid2';
 import {useDispatch,useSelector} from 'react-redux';
 import { changePassword } from '../../../actions/auth';
@@ -17,6 +19,49 @@ export default function MenuAppBar() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location  = useLocation();
+
+  //idle state
+  const [state, setState] = useState('Active')
+  const [count, setCount] = useState(0)
+  const [remaining, setRemaining] = useState(0)
+
+  const onIdle = () => {
+    setState('Idle')
+  }
+
+  const onActive = () => {
+    setState('Active')
+  }
+
+  const onAction = () => {
+    setCount(count + 1)
+  }
+
+  const { getRemainingTime } = useIdleTimer({
+    onIdle,
+    onActive,
+    onAction,
+    timeout: 180_000, // 3 minutes no activity it will refresh the page
+    throttle: 500
+  })
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemaining(Math.ceil(getRemainingTime() / 1000))
+    }, 500)
+
+    return () => {
+      clearInterval(interval)
+    }
+  });
+
+  useEffect(() => {
+    if(state === 'Idle'){
+      window.location.reload();
+    }
+  },[state]);
+
+  //idle state
 
   const {isLoading,message} = useSelector(state=> state.auth);
 
@@ -108,6 +153,14 @@ export default function MenuAppBar() {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
+       {/* <>
+        <h1>React Idle Timer</h1>
+        <h2>useIdleTimer</h2>
+        <br />
+        <p>Current State: {state}</p>
+        <p>Action Events: {count}</p>
+        <p>{remaining} seconds remaining</p>
+      </> */}
       <AppBar position="static" color="info">
         <Toolbar>
           <Link variant="h6" href="/"  sx={{ flexGrow: 1,color:"#fff",textDecoration:"none", fontSize:32 }}>
