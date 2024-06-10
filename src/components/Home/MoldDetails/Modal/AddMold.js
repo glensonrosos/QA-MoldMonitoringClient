@@ -95,7 +95,7 @@ const AddMold = ({ openAddModal, handleCloseAddModal,itemSelected }) =>{
 
         let flag = true;
 
-        if(userDepartment !== "Purchasing" && userDepartment !== "Administrator"){
+        if(userDepartment !== "Purchasing" && userDepartment !== "Administrator" && userDepartment !== "IQC"){
             setSnackbar({ children: `You are not allowed to make this action`, severity: 'warning' });
             flag = false;
         }
