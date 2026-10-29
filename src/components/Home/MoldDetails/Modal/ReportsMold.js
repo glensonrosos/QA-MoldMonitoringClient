@@ -2,7 +2,6 @@ import React,{useState,useEffect} from 'react';
 
 
 import { Box,Button,Snackbar,Alert,Autocomplete,TextField,Backdrop,CircularProgress,Typography} from '@mui/material';
-import Grid from '@mui/material/Unstable_Grid2';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -23,15 +22,19 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
 
     const {suppliers} = useSelector(state=> state.suppliers);
     const {buyers} = useSelector(state=> state.buyers);
+    const {materials} = useSelector(state=> state.materials);
     const {isLoading,exportMolds,message,nearValidationMolds} = useSelector(state => state.molds);
 
     const [inputSupplier,setInputSupplier] = useState([]);
     const [inputBuyer,setInputBuyer] = useState([]);
+    const [inputMaterial,setInputMaterial] = useState([]);
     
     const [input,setInput] = useState({
         itemCode:null,
-        supplier:null,
-        buyer:null,
+        itemDescription:null,
+        supplier:[],
+        buyer:[],
+        material:[],
         condition:[],
     });
     const [inputNearValidation,setInputNearValidation] = useState([]);
@@ -44,6 +47,7 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
             const dataExport = exportMolds.map(ex =>{
                 return {
                     "Item Code": ex.itemCode,
+                    "Item Description": ex.itemDescription,
                     "Buyer": ex.buyerName,
                     "Material":ex.materialName,
                     "Mold Material":ex.moldMaterialName,
@@ -86,14 +90,17 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
     useEffect(()=>{
         setInputSupplier(suppliers);
         setInputBuyer(buyers);
-    },[suppliers,buyers]);
+        setInputMaterial(materials);
+    },[suppliers,buyers,materials]);
 
 
     const inputClear = () =>{
         setInput({
             itemCode:null,
-            supplier:null,
-            buyer:null,
+            itemDescription:null,
+            supplier:[],
+            buyer:[],
+            material:[],
             condition: [],
         });
     }
@@ -109,7 +116,7 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
     const handleCloseSnackbar = () => setSnackbar(null);
 
     const handleOnChangeInput = (name,e,val=null) =>{
-        if(name === "condition" || name === "supplier" || name === "buyer"){
+        if(name === "condition" || name === "supplier" || name === "buyer" || name === "material"){
             setInput({
                 ...input,
                 [name]: val 
@@ -126,40 +133,25 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
 
         let flag = true;
 
-        const itemCodeReg = /^[a-zA-Z0-9-]*$/;
-        if(!itemCodeReg.test(input.itemCode)) {
+        const itemCodeReg = /^[a-zA-Z0-9-,\s]*$/;
+        if(!itemCodeReg.test(input.itemCode || '')) {
             setSnackbar({ children: `Item Code Number inputed is invalid, `, severity: 'error' });
             flag = false;
         }
 
-        const findSupplier = inputSupplier.find(con => con?.name === input.supplier?.name);
-        const findBuyer = inputBuyer.find(buy => buy?.name === input.buyer?.name);
-
-        if(findSupplier === undefined || findSupplier === null){
-            if(findBuyer === undefined || findBuyer === null){
-                setSnackbar({ children: `Supplier or Buyer is required`, severity: 'error' });
-                flag = false;
-            }
-        }
-       
-        if(findBuyer === undefined || findBuyer === null){
-            if(findSupplier === undefined || findSupplier === null){
-                setSnackbar({ children: `Buyer or Supplier is required`, severity: 'error' });
-                flag = false;
-            }
-        }
-
-        if(input?.condition?.length === 0){
-           
-            setSnackbar({ children: `Condition is required`, severity: 'error' });
-            flag = false;
-        }
         if(flag){
 
            // alert(JSON.stringify(input));
             setGenerateReportLoading(true);
 
-            await dispatch(exportReport({itemCode:input?.itemCode?.toUpperCase(), supplierId:input?.supplier?._id,buyerId:input?.buyer?._id, condition: input?.condition }));
+            await dispatch(exportReport({
+                itemCodes: (input.itemCode || '').split(',').map(code => code.trim().toUpperCase()).filter(Boolean),
+                itemDescription: input.itemDescription?.trim() || '',
+                supplierIds: input.supplier.map(option => option._id),
+                buyerIds: input.buyer.map(option => option._id),
+                materialIds: input.material.map(option => option._id),
+                condition: input.condition
+            }));
             // start loading
         }
     }
@@ -178,9 +170,12 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
                     sx={{
                         '& .MuiTextField-root': { m: 1, width: '50ch' },
                     }}>
-                <TextField label="Item Code" onChange={(e)=>handleOnChangeInput("itemCode",e)} value={input.itemCode || ''} variant="outlined" size='small' fullWidth
+                <TextField label="Item Code(s)" helperText="Substring, case-insensitive partial match; separate multiple values with commas" onChange={(e)=>handleOnChangeInput("itemCode",e)} value={input.itemCode || ''} variant="outlined" size='small' fullWidth
+                 onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}}/>
+                <TextField label="Item Description" helperText="Substring, case-insensitive partial match; separate multiple values with commas" onChange={(e)=>handleOnChangeInput("itemDescription",e)} value={input.itemDescription || ''} variant="outlined" size='small' fullWidth
                  onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}}/>
                 <Autocomplete
+                    multiple
                     size='small'
                     disablePortal
                     id="supplierId"
@@ -190,11 +185,12 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
                     getOptionLabel={(option) => option.name}
                     sx={{ width: 250 }}
                     value={input?.supplier}
-                    isOptionEqualToValue={(option, value) => option.value === value.value}
-                    renderInput={(params) => <TextField {...params} label="Supplier" onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}} />}
+                    isOptionEqualToValue={(option, value) => option._id === value._id}
+                    renderInput={(params) => <TextField {...params} label="Supplier (optional)" />}
                 />
 
                 <Autocomplete
+                    multiple
                     size='small'
                     disablePortal
                     id="buyerId"
@@ -204,8 +200,19 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
                     getOptionLabel={(option) => option.name}
                     sx={{ width: 250 }}
                     value={input?.buyer}
-                    isOptionEqualToValue={(option, value) => option.value === value.value}
-                    renderInput={(params) => <TextField {...params} label="Buyer" onKeyDown={(e) => { if (e.key === 'Enter') {generateReport();}}} />}
+                    isOptionEqualToValue={(option, value) => option._id === value._id}
+                    renderInput={(params) => <TextField {...params} label="Buyer (optional)" />}
+                />
+                <Autocomplete
+                    multiple
+                    size='small'
+                    disablePortal
+                    options={inputMaterial}
+                    onChange={(e,v)=>handleOnChangeInput("material",e,v)}
+                    getOptionLabel={(option) => option.name}
+                    value={input?.material}
+                    isOptionEqualToValue={(option, value) => option._id === value._id}
+                    renderInput={(params) => <TextField {...params} label="Material (optional)" />}
                 />
                
                 <Autocomplete
@@ -215,15 +222,16 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
                     options={conditions}
                     getOptionLabel={(option) => option.label} 
                     onChange={(e,v)=>handleOnChangeInput("condition",e,v)}
-                    
-                    renderInput={(params) => <TextField {...params} label="Condition" variant="standard"/>}
+                    value={input?.condition}
+                    renderInput={(params) => <TextField {...params} label="Condition (optional)" variant="standard"/>}
                     sx={{ width: 250 }}
                 /> 
                 
                 </Box>
                 <Box sx={{mt:2}}>
                     <Typography variant="p" color="error" >
-                        Note: ItemCode is optional | Condition is required,<br/>Supplier or Buyer are required
+                        Note: All filters are optional. Item Code and Item Description use substring, case-insensitive partial matching.
+                        <br/>Multiple suppliers, buyers, materials, and conditions can be selected.
                     </Typography>
                 </Box>
                 {/* </Grid>
@@ -251,4 +259,3 @@ const ReportsMold = ({ openReportsModal, handleCloseReportsModal }) =>{
 };
 
 export default ReportsMold;
-
