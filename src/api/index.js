@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API = axios.create({baseURL: 'http://10.0.1.249:5002/mm'});
+// const API = axios.create({baseURL: 'http://10.0.1.249:5002/mm'});
+const API = axios.create({baseURL: 'http://10.0.1.221:5000/mm'});
 
 //ITEM
 export const getItems = (page) => API.get(`/items?page=${page}`);
